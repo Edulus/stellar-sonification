@@ -3,6 +3,7 @@ import SkyCanvas from "./SkyCanvas.jsx";
 import SynthPanel from "./SynthPanel.jsx";
 import SpectrumPanel from "./SpectrumPanel.jsx";
 import LocationPicker from "./LocationPicker.jsx";
+import GroundToggle from "./GroundToggle.jsx";
 import RingOverlay from "./RingOverlay.jsx";
 import ObjectTooltip from "./ObjectTooltip.jsx";
 import { SonificationEngine } from "../audio/SonificationEngine.js";
@@ -27,6 +28,12 @@ export default function App() {
   const [chordIndices, setChordIndices] = useState(null); // lines lit together (chord)
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [location, setLocation] = useState(ALL_SITES[0]); // observing site
+  // Ground/horizon visibility. Off by default, matching config.js's
+  // nightSky.landscape (the engine's own starting state) so this toggle never
+  // has to "catch up" to a mismatched initial render.
+  const [groundVisible, setGroundVisible] = useState(false);
+  const groundVisibleRef = useRef(groundVisible);
+  useEffect(() => { groundVisibleRef.current = groundVisible; }, [groundVisible]);
   const [mode, setMode] = useState("seed"); // 'sequential' | 'chord' | 'seed'
   // SEED mode: "" means derive the seed from the star itself, so a given star
   // always plays the same piece. Typing (or rerolling) overrides it.
@@ -81,6 +88,15 @@ export default function App() {
     if (loc.name !== ALL_SITES[0].name) {
       bridge.setLocation(loc.lat, loc.lng, loc.elevation);
     }
+    // Same reasoning: the user may have flipped the ground toggle before the
+    // engine finished loading. Default is false, matching the engine's own
+    // starting state, so this is only ever needed when it's true.
+    if (groundVisibleRef.current) bridge.setLandscapeVisible(true);
+  }, []);
+
+  const handleGroundToggle = useCallback((next) => {
+    setGroundVisible(next);
+    bridgeRef.current?.setLandscapeVisible(next);
   }, []);
 
   const handleLocationSelect = useCallback((site) => {
@@ -212,7 +228,10 @@ export default function App() {
 
       <RingOverlay engine={engineRef.current} />
 
-      <LocationPicker location={location} onSelect={handleLocationSelect} />
+      <div style={styles.topLeftBar}>
+        <LocationPicker location={location} onSelect={handleLocationSelect} />
+        <GroundToggle visible={groundVisible} onToggle={handleGroundToggle} />
+      </div>
 
       <div style={styles.hud}>
         <div style={styles.hint}>
@@ -266,6 +285,15 @@ export default function App() {
 }
 
 const styles = {
+  topLeftBar: {
+    position: "fixed",
+    top: 16,
+    left: 16,
+    zIndex: 20,
+    display: "flex",
+    alignItems: "flex-start", // the drawer opening below LocationPicker must not push GroundToggle down
+    gap: 8,
+  },
   hud: {
     position: "fixed",
     left: 0,

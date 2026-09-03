@@ -183,6 +183,23 @@ export class StellariumBridge {
   }
 
   /**
+   * Show or hide the ground/horizon landscape. Off (the default, per
+   * config.nightSky.landscape) exposes the full celestial sphere — you can
+   * look "through" the ground at stars below the local horizon. On draws the
+   * landscape silhouette so the horizon reads as a horizon. Purely visual;
+   * does not affect what's selectable or the night-lock/atmosphere settings.
+   */
+  setLandscapeVisible(visible) {
+    const landscapes = this.stel?.core?.landscapes;
+    if (!landscapes) return;
+    try {
+      landscapes.visible = !!visible;
+    } catch (e) {
+      console.warn("[StellariumBridge] setLandscapeVisible failed:", e);
+    }
+  }
+
+  /**
    * Park the clock at the observer's *solar midnight* so the sun is below the
    * horizon. Solar midnight (UTC) for longitude λ° is ~ (0 − λ/15) h today;
    * we set the engine's observer time, which is Terrestrial Time as a Modified

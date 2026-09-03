@@ -91,9 +91,10 @@ export default function LocationPicker({ location, onSelect }) {
 
 const S = {
   root: {
-    position: "fixed",
-    top: 16,
-    left: 16,
+    // Unpositioned on purpose — App.jsx places this as a flex item alongside
+    // other top-left HUD buttons (e.g. the ground toggle) so they line up
+    // without either one hardcoding the other's width.
+    position: "relative",
     zIndex: 20,
     fontFamily: "'IBM Plex Mono', 'Menlo', monospace",
     pointerEvents: "auto",
@@ -114,7 +115,14 @@ const S = {
   }),
   lock: { color: "rgba(140,215,175,0.85)", marginLeft: 8, fontSize: 9 },
   drawer: {
-    marginTop: 6,
+    // Absolutely positioned (root is position:relative) so its 360px width
+    // doesn't stretch the LocationPicker flex item it lives in — root would
+    // otherwise size itself to the drawer instead of the trigger button,
+    // shoving whatever sits next to it (the ground toggle) sideways whenever
+    // the drawer opens.
+    position: "absolute",
+    top: "calc(100% + 6px)",
+    left: 0,
     width: 360,
     border: "1px solid rgba(120,150,200,0.25)",
     borderRadius: 3,
