@@ -81,7 +81,7 @@ export default function LocationPicker({ location, onSelect }) {
 
           <div style={S.foot}>
             <span>⊕ {location.name.toUpperCase()} · {fmtLat(location.lat)} {fmtLng(location.lng)}</span>
-            <span style={{ color: "rgba(110,180,140,0.55)" }}>ATMOSPHERE OFF · NIGHT LOCKED</span>
+            <span style={{ color: "rgba(140,215,175,0.85)" }}>ATMOSPHERE OFF · NIGHT LOCKED</span>
           </div>
         </div>
       )}
@@ -99,9 +99,9 @@ const S = {
     pointerEvents: "auto",
   },
   trigger: (open) => ({
-    background: open ? "rgba(120,150,200,0.14)" : "rgba(12,14,24,0.7)",
-    border: `1px solid ${open ? "rgba(120,150,200,0.6)" : "rgba(80,85,100,0.35)"}`,
-    color: open ? "rgba(170,195,240,0.95)" : "rgba(150,160,185,0.75)",
+    background: open ? "rgba(120,150,200,0.18)" : "rgba(10,12,20,0.82)",
+    border: `1px solid ${open ? "rgba(120,150,200,0.6)" : "rgba(100,110,135,0.45)"}`,
+    color: open ? "rgba(190,210,250,0.98)" : "rgba(200,208,225,0.92)",
     fontFamily: "inherit",
     fontSize: 10,
     letterSpacing: 1,
@@ -110,8 +110,9 @@ const S = {
     cursor: "pointer",
     transition: "all 0.2s",
     backdropFilter: "blur(4px)",
+    textShadow: "0 1px 3px rgba(0,0,0,0.8)",
   }),
-  lock: { color: "rgba(110,180,140,0.55)", marginLeft: 8, fontSize: 8 },
+  lock: { color: "rgba(140,215,175,0.85)", marginLeft: 8, fontSize: 9 },
   drawer: {
     marginTop: 6,
     width: 360,
@@ -138,11 +139,11 @@ const S = {
   },
   tabs: { display: "flex", gap: 5, flexWrap: "wrap" },
   tab: (on) => ({
-    background: on ? "rgba(120,150,200,0.18)" : "transparent",
-    border: `1px solid ${on ? "rgba(120,150,200,0.5)" : "rgba(80,85,100,0.25)"}`,
-    color: on ? "rgba(180,200,240,0.9)" : "rgba(140,145,160,0.5)",
+    background: on ? "rgba(120,150,200,0.2)" : "transparent",
+    border: `1px solid ${on ? "rgba(120,150,200,0.55)" : "rgba(100,110,135,0.35)"}`,
+    color: on ? "rgba(195,212,248,0.95)" : "rgba(170,178,198,0.7)",
     fontFamily: "inherit",
-    fontSize: 8,
+    fontSize: 9,
     padding: "3px 8px",
     letterSpacing: 1,
     cursor: "pointer",
@@ -150,7 +151,7 @@ const S = {
     transition: "all 0.2s",
   }),
   list: { maxHeight: 300, overflowY: "auto" },
-  empty: { padding: "16px 12px", fontSize: 10, color: "rgba(140,145,160,0.4)", textAlign: "center" },
+  empty: { padding: "16px 12px", fontSize: 10, color: "rgba(170,178,198,0.6)", textAlign: "center" },
   row: (active) => ({
     display: "flex",
     alignItems: "center",
@@ -166,16 +167,16 @@ const S = {
     cursor: "pointer",
     transition: "background 0.15s",
   }),
-  dot: { width: 12, color: "rgba(120,180,230,0.9)", fontSize: 10, flexShrink: 0 },
-  name: (active) => ({ fontSize: 11, color: active ? "rgba(180,205,245,0.95)" : "rgba(190,195,210,0.8)" }),
-  country: { fontSize: 9, color: "rgba(140,145,160,0.45)" },
-  desc: { display: "block", fontSize: 9, color: "rgba(140,145,160,0.4)", marginTop: 1 },
-  coords: { fontSize: 9, color: "rgba(120,150,200,0.5)", flexShrink: 0, textAlign: "right" },
+  dot: { width: 12, color: "rgba(140,195,240,0.95)", fontSize: 10, flexShrink: 0 },
+  name: (active) => ({ fontSize: 11, color: active ? "rgba(195,215,250,0.98)" : "rgba(210,215,228,0.9)" }),
+  country: { fontSize: 9, color: "rgba(175,180,198,0.65)" },
+  desc: { display: "block", fontSize: 9, color: "rgba(170,175,192,0.6)", marginTop: 1 },
+  coords: { fontSize: 9, color: "rgba(150,180,230,0.75)", flexShrink: 0, textAlign: "right" },
   foot: {
     padding: "7px 12px",
     borderTop: "1px solid rgba(120,130,160,0.12)",
     fontSize: 9,
-    color: "rgba(140,150,180,0.55)",
+    color: "rgba(185,192,212,0.75)",
     letterSpacing: 1,
     display: "flex",
     justifyContent: "space-between",

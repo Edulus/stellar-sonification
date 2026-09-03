@@ -275,12 +275,16 @@ const styles = {
     justifyContent: "center",
     pointerEvents: "none",
     fontFamily: "'IBM Plex Mono', 'Menlo', monospace",
-    textShadow: "0 1px 6px rgba(0,0,0,0.9)",
+    // Two-layer halo: a tight, near-opaque shadow to hold an edge against a
+    // bright star or cluster sitting right behind the text, plus a wider soft
+    // one for the general case. A single soft blur (the old rule) turns to
+    // fog over anything brighter than empty sky.
+    textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.85), 0 0 14px rgba(0,0,0,0.6)",
   },
   hint: {
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: 2,
-    color: "rgba(170,180,200,0.4)",
+    color: "rgba(225,232,245,0.85)",
     textTransform: "uppercase",
   },
 };
