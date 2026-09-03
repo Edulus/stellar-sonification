@@ -138,6 +138,11 @@ export class StellariumBridge {
       this.setLocation(l.lat, l.lng, l.elevation);
       this._location = l;
     }
+    // Opens on the real current sky, ticking forward — core_init already
+    // seeded the observer's clock from the system clock, so this is the only
+    // thing needed to make it "now, live" rather than a frozen snapshot of
+    // whatever moment the page happened to load.
+    this.setLive(true);
     this._wireSelection();
     this._wireHover();
     this.emit("ready");
@@ -145,10 +150,13 @@ export class StellariumBridge {
   }
 
   /**
-   * Enforce an always-dark night sky (see config.nightSky). Disabling the
-   * atmosphere is what actually keeps the sky black at any sun altitude;
-   * landscape off exposes the full sphere. Each toggle is guarded — a missing
-   * module just means that layer isn't present in this build.
+   * Keep every star clickable regardless of what time is showing (see
+   * config.nightSky). Disabling the atmosphere is what actually keeps the
+   * sky black at any sun altitude — real daylight scattering would hide
+   * almost everything there is to click. Landscape starts off (full-sphere
+   * view); the user can flip it on via setLandscapeVisible(). Each toggle is
+   * guarded — a missing module just means that layer isn't present in this
+   * build.
    */
   _applyNightSky(opts) {
     if (!opts) return;
@@ -156,14 +164,14 @@ export class StellariumBridge {
     if (!core) return;
     if (opts.atmosphere === false && core.atmosphere) core.atmosphere.visible = false;
     if (opts.landscape === false && core.landscapes) core.landscapes.visible = false;
-    if (opts.lockToNight) this.lockToNight();
   }
 
   /**
    * Move the observer. lat/lng in signed decimal degrees (N/E positive),
    * elevation in metres. The engine's `observer.latitude/longitude` are in
-   * radians. If the sky is night-locked, re-park the clock for the new
-   * longitude so the sun stays down.
+   * radians. Does NOT touch the clock — changing location while looking at a
+   * chosen date/time should show that same moment from the new location, not
+   * silently jump the time too.
    */
   setLocation(lat, lng, elevation = 0) {
     const obs = this.stel?.core?.observer;
@@ -179,7 +187,6 @@ export class StellariumBridge {
       console.warn("[StellariumBridge] setLocation failed:", e);
     }
     this._location = { lat, lng, elevation };
-    if (this._nightLocked) this.lockToNight();
   }
 
   /**
@@ -187,7 +194,7 @@ export class StellariumBridge {
    * config.nightSky.landscape) exposes the full celestial sphere — you can
    * look "through" the ground at stars below the local horizon. On draws the
    * landscape silhouette so the horizon reads as a horizon. Purely visual;
-   * does not affect what's selectable or the night-lock/atmosphere settings.
+   * does not affect what's selectable or the atmosphere setting.
    */
   setLandscapeVisible(visible) {
     const landscapes = this.stel?.core?.landscapes;
@@ -199,31 +206,89 @@ export class StellariumBridge {
     }
   }
 
+  // ── time control ─────────────────────────────────────────────────────
+  //
+  // `core.time_speed` is the engine's own throttle (0 = frozen, 1 = real
+  // time, exported the same dynamic-property way as atmosphere/landscape
+  // .visible — see the SweObj constructor in the engine glue). `core_init`
+  // already seeds the observer's clock from the *real* system time (see
+  // core.c), so enabling live ticking needs nothing else — there is no "now"
+  // to compute ourselves. `observer.utc` is a genuine engine property (see
+  // PROPERTY(utc, ...) in observer.c), so setting it directly is correct
+  // without hand-rolling the UTC/TT leap-second offset — `date2MJD`/
+  // `MJD2date` (both exported on the engine Module) do that conversion.
+
   /**
-   * Park the clock at the observer's *solar midnight* so the sun is below the
-   * horizon. Solar midnight (UTC) for longitude λ° is ~ (0 − λ/15) h today;
-   * we set the engine's observer time, which is Terrestrial Time as a Modified
-   * Julian Date (TT ≈ UTC + 69 s — negligible for a dark-sky view).
+   * Start or stop the clock ticking forward in real time. Enabling always
+   * snaps the observer to the *actual* current moment first — without this,
+   * "resume live" after a frozen custom date would just start ticking
+   * forward from wherever it was frozen (e.g. still 1969), not jump back to
+   * the real present. init() relies on this too: it's what makes the app
+   * open on "now" rather than whatever the engine's own default happened to
+   * be a render tick after core_init seeded it.
    */
-  lockToNight(date = new Date()) {
+  setLive(enabled) {
+    const core = this.stel?.core;
     const obs = this.stel?.core?.observer;
-    if (!obs) return;
-    this._nightLocked = true;
+    if (!core) return;
+    try {
+      if (enabled && obs) obs.utc = this.stel.date2MJD(Date.now());
+      core.time_speed = enabled ? 1 : 0;
+    } catch (e) {
+      console.warn("[StellariumBridge] setLive failed:", e);
+    }
+  }
+
+  /** Whether the clock is currently ticking forward in real time. */
+  isLive() {
+    return (this.stel?.core?.time_speed ?? 0) !== 0;
+  }
+
+  /**
+   * Jump to an exact date/time (a JS Date). Interpreted as UTC — the engine
+   * has no per-location timezone database, so UTC is the one unambiguous
+   * choice for "any point on Earth" (the UI labels it as such). Also freezes
+   * the clock there via setLive(false); picking an exact moment and having
+   * it immediately start drifting away would defeat the point of picking it.
+   */
+  setDateTime(date) {
+    const obs = this.stel?.core?.observer;
+    if (!obs || !(date instanceof Date) || Number.isNaN(date.getTime())) return;
+    try {
+      obs.utc = this.stel.date2MJD(date.getTime());
+    } catch (e) {
+      console.warn("[StellariumBridge] setDateTime failed:", e);
+      return;
+    }
+    this.setLive(false);
+  }
+
+  /** Current observer date/time as a JS Date (UTC), or null before ready. */
+  getDateTime() {
+    const obs = this.stel?.core?.observer;
+    if (!obs) return null;
+    try {
+      return this.stel.MJD2date(obs.utc);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Jump to solar midnight *today* at the current location and freeze there
+   * — the app's original fixed behavior, kept as a one-click "guaranteed
+   * dark sky right now" shortcut. Solar midnight (UTC) for longitude λ° is
+   * ~ (0 − λ/15) h.
+   */
+  goToTonight(date = new Date()) {
     const lng = this._location?.lng ?? 0;
-    // UTC hour of local solar midnight, normalized to [0,24).
     const midnightUTCh = ((0 - lng / 15) % 24 + 24) % 24;
     const d = new Date(Date.UTC(
       date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(),
       0, 0, 0, 0,
     ));
     d.setUTCHours(midnightUTCh, (midnightUTCh % 1) * 60, 0, 0);
-    // Modified Julian Date from epoch millis: MJD = ms/86400000 + 40587.
-    const mjd = d.getTime() / 86400000 + 40587;
-    try {
-      obs.tt = mjd;
-    } catch (e) {
-      console.warn("[StellariumBridge] lockToNight failed:", e);
-    }
+    this.setDateTime(d);
   }
 
   _registerDataSources(config) {

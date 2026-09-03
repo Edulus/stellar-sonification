@@ -39,15 +39,16 @@ export const ENGINE_CONFIG = {
     { module: "planets", url: "surveys/sso/moon", key: "default" },
   ],
 
-  // Always-night sky enforcement. Applied in StellariumBridge.init() right after
-  // the data sources register. Disabling the atmosphere is the real guarantee of
-  // a dark sky (no Rayleigh scattering at any sun altitude); landscape off frees
-  // the full sphere; lockToNight additionally parks the clock at the observer's
-  // solar midnight so the sun disc itself sits below the horizon.
+  // Always-dark sky. Applied in StellariumBridge.init() right after the data
+  // sources register. Disabling the atmosphere is what keeps every star
+  // clickable at any time of day (no Rayleigh scattering hiding them behind
+  // a blue daytime sky); landscape off frees the full sphere by default (the
+  // ground toggle can turn it back on). The clock itself is NOT pinned here —
+  // StellariumBridge.init() sets it live (real time, ticking) by default;
+  // TimeControl.jsx lets the user freeze it at any date/time instead.
   nightSky: {
     atmosphere: false,
     landscape: false,
-    lockToNight: true,
   },
 
   // Default observer. Overridable at runtime via StellariumBridge.setLocation().

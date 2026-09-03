@@ -4,7 +4,8 @@ import { OBSERVING_LOCATIONS, ALL_SITES, fmtLat, fmtLng } from "../data/location
 // Observing-location picker. A compact trigger in the top-left HUD opens a
 // drawer of curated sites (search + region filter). Selecting one calls
 // onSelect(site); App pipes that into StellariumBridge.setLocation so the
-// engine recomputes the visible sky (and re-parks the night-locked clock).
+// engine recomputes the visible sky. Does not touch the clock — see
+// TimeControl.jsx (the sibling HUD button) for date/time.
 
 export default function LocationPicker({ location, onSelect }) {
   const [open, setOpen] = useState(false);
@@ -27,7 +28,6 @@ export default function LocationPicker({ location, onSelect }) {
       <button onClick={() => setOpen((o) => !o)} style={S.trigger(open)}>
         ⊕ {location.name.toUpperCase()}
         <span style={{ opacity: 0.5, marginLeft: 4 }}>{open ? "▲" : "▼"}</span>
-        <span style={S.lock}> · NIGHT LOCKED</span>
       </button>
 
       {open && (
@@ -81,7 +81,7 @@ export default function LocationPicker({ location, onSelect }) {
 
           <div style={S.foot}>
             <span>⊕ {location.name.toUpperCase()} · {fmtLat(location.lat)} {fmtLng(location.lng)}</span>
-            <span style={{ color: "rgba(140,215,175,0.85)" }}>ATMOSPHERE OFF · NIGHT LOCKED</span>
+            <span style={{ color: "rgba(140,215,175,0.85)" }}>ATMOSPHERE OFF</span>
           </div>
         </div>
       )}
@@ -113,7 +113,6 @@ const S = {
     backdropFilter: "blur(4px)",
     textShadow: "0 1px 3px rgba(0,0,0,0.8)",
   }),
-  lock: { color: "rgba(140,215,175,0.85)", marginLeft: 8, fontSize: 9 },
   drawer: {
     // Absolutely positioned (root is position:relative) so its 360px width
     // doesn't stretch the LocationPicker flex item it lives in — root would

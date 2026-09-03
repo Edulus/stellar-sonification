@@ -4,6 +4,7 @@ import SynthPanel from "./SynthPanel.jsx";
 import SpectrumPanel from "./SpectrumPanel.jsx";
 import LocationPicker from "./LocationPicker.jsx";
 import GroundToggle from "./GroundToggle.jsx";
+import TimeControl from "./TimeControl.jsx";
 import RingOverlay from "./RingOverlay.jsx";
 import ObjectTooltip from "./ObjectTooltip.jsx";
 import { SonificationEngine } from "../audio/SonificationEngine.js";
@@ -39,6 +40,10 @@ export default function App() {
   // always plays the same piece. Typing (or rerolling) overrides it.
   const [seed, setSeed] = useState("");
   const bridgeRef = useRef(null); // set once the engine is ready
+  // Re-render trigger for children (TimeControl) that need the live bridge
+  // instance itself, not just a fire-and-forget ref call — bridgeRef.current
+  // is already assigned by the time this flips true (same tick, see below).
+  const [bridgeReady, setBridgeReady] = useState(false);
 
   // Hover mode: when enabled, mousing over a star in the sky triggers audio.
   const [hoverEnabled, setHoverEnabled] = useState(false);
@@ -92,6 +97,7 @@ export default function App() {
     // engine finished loading. Default is false, matching the engine's own
     // starting state, so this is only ever needed when it's true.
     if (groundVisibleRef.current) bridge.setLandscapeVisible(true);
+    setBridgeReady(true);
   }, []);
 
   const handleGroundToggle = useCallback((next) => {
@@ -231,6 +237,7 @@ export default function App() {
       <div style={styles.topLeftBar}>
         <LocationPicker location={location} onSelect={handleLocationSelect} />
         <GroundToggle visible={groundVisible} onToggle={handleGroundToggle} />
+        <TimeControl bridge={bridgeReady ? bridgeRef.current : null} />
       </div>
 
       <div style={styles.hud}>
