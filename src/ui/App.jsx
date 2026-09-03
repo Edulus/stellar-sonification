@@ -27,7 +27,7 @@ export default function App() {
   const [chordIndices, setChordIndices] = useState(null); // lines lit together (chord)
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [location, setLocation] = useState(ALL_SITES[0]); // observing site
-  const [mode, setMode] = useState("sequential"); // 'sequential' | 'chord' | 'seed'
+  const [mode, setMode] = useState("seed"); // 'sequential' | 'chord' | 'seed'
   // SEED mode: "" means derive the seed from the star itself, so a given star
   // always plays the same piece. Typing (or rerolling) overrides it.
   const [seed, setSeed] = useState("");

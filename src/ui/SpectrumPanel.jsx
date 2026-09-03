@@ -8,6 +8,22 @@ import { wlToRGB } from "../audio/color.js";
 // plays that single line. The currently-sequencing line is highlighted via
 // `playingIdx`. Shows as a dismissible panel along the bottom.
 
+// wlToRGB is a physically-motivated mapping (violet and deep red are
+// genuinely dark), but that accuracy is wasted on text — a label rendered in
+// near-black purple is just unreadable. This lightens a color toward white
+// only as much as needed to clear a minimum luma, keeping its hue so the
+// wavelength-colored label is still recognizably that color, just legible.
+// The classic Ca II H&K / Hdelta / Ca I cluster (~390-430nm) is exactly the
+// case this fixes: wlToRGB's own darkening factor for that range plus a
+// naturally dark violet hue combine to a near-black text color otherwise.
+function legibleRGB([r, g, b], minLuma = 150) {
+  const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+  if (luma >= minLuma) return [r, g, b];
+  const t = (minLuma - luma) / (255 - luma || 1);
+  const mix = (c) => Math.round(c + (255 - c) * t);
+  return [mix(r), mix(g), mix(b)];
+}
+
 function blackbody(wl_nm, T) {
   const wl = wl_nm * 1e-9;
   const h = 6.626e-34, c = 3e8, k = 1.381e-23;
@@ -127,16 +143,18 @@ export default function SpectrumPanel({
         glow.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = glow; ctx.fillRect(x - 34, m.t, 68, ph);
       }
-      ctx.fillStyle = isP ? "#ffdd55" : colored ? `rgb(${lr},${lg},${lb})` : "rgba(180,180,200,0.5)";
+      const [tr, tg, tb] = legibleRGB([lr, lg, lb]);
+      ctx.fillStyle = isP ? "#ffdd55" : colored ? `rgb(${tr},${tg},${tb})` : "rgba(205,210,225,0.75)";
       ctx.font = lit ? "bold 9px monospace" : "8px monospace";
       ctx.textAlign = "center";
       ctx.fillText(line.el, x, m.t - 6);
-      ctx.font = "7px monospace"; ctx.fillStyle = "rgba(150,150,170,0.4)";
+      ctx.font = "7px monospace";
+      ctx.fillStyle = colored ? `rgba(${tr},${tg},${tb},0.85)` : "rgba(190,195,212,0.6)";
       ctx.fillText(`${line.wl}`, x, m.t - 16);
     });
 
     // Axis.
-    ctx.fillStyle = "rgba(130,140,160,0.5)"; ctx.font = "8px monospace"; ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(195,200,218,0.7)"; ctx.font = "8px monospace"; ctx.textAlign = "center";
     for (let wl = 400; wl <= 750; wl += 50) ctx.fillText(`${wl}`, toX(wl), stripY + stripH + 14);
     ctx.fillText("wavelength (nm)", m.l + pw / 2, stripY + stripH + 26);
   }, [data, activeIdx, playingIdx, chordIndices, width]);
