@@ -1,0 +1,1696 @@
+{
+  "O5V": {
+    "temp": 41000,
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.3,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 380,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.28,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 360,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.26,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 320,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 468.6,
+        "depth": 0.24,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 280,
+        "el": "He II",
+        "ep": 48.0
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.22,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 260,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 454.1,
+        "depth": 0.22,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 260,
+        "el": "He II",
+        "ep": 48.0
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.18,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 150,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.04,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 25,
+        "el": "Ca II K",
+        "ep": 0.0
+      }
+    ]
+  },
+  "O9V": {
+    "temp": 32000,
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.32,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 420,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.32,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 396,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.3,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 380,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.28,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 326,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.25,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 212,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 468.6,
+        "depth": 0.18,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 200,
+        "el": "He II",
+        "ep": 48.0
+      },
+      {
+        "wl": 454.1,
+        "depth": 0.17,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 195,
+        "el": "He II",
+        "ep": 48.0
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.05,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 32,
+        "el": "Ca II K",
+        "ep": 0.0
+      }
+    ]
+  },
+  "B0V": {
+    "temp": 28000,
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.36,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 476,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.34,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 429,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.33,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 420,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.31,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 356,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.28,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 240,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 587.6,
+        "depth": 0.23,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 198,
+        "el": "He I D₃",
+        "ep": 20.96
+      },
+      {
+        "wl": 468.6,
+        "depth": 0.12,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 120,
+        "el": "He II",
+        "ep": 48.0
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.06,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 35,
+        "el": "Ca II K",
+        "ep": 0.0
+      }
+    ]
+  },
+  "B2V": {
+    "temp": 22000,
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.42,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 560,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.38,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 480,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.38,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 480,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.35,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 400,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.3,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 260,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 587.6,
+        "depth": 0.26,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 230,
+        "el": "He I D₃",
+        "ep": 20.96
+      },
+      {
+        "wl": 634.7,
+        "depth": 0.12,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 70,
+        "el": "Si II",
+        "ep": 8.12
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.06,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 40,
+        "el": "Ca II K",
+        "ep": 0.0
+      }
+    ]
+  },
+  "B5V": {
+    "temp": 15400,
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.55,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 850,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.5,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 700,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.5,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 700,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.45,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 520,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 587.6,
+        "depth": 0.28,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 260,
+        "el": "He I D₃",
+        "ep": 20.96
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.25,
+        "width": 1.0,
+        "profile": "gaussian",
+        "ew": 200,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 634.7,
+        "depth": 0.18,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 95,
+        "el": "Si II",
+        "ep": 8.12
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.07,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 45,
+        "el": "Ca II K",
+        "ep": 0.0
+      }
+    ]
+  },
+  "B8V": {
+    "temp": 12000,
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.65,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1000,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.62,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 880,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.56,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 809,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.45,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 520,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 587.6,
+        "depth": 0.29,
+        "width": 0.8,
+        "profile": "gaussian",
+        "ew": 285,
+        "el": "He I D₃",
+        "ep": 20.96
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.22,
+        "width": 0.8,
+        "profile": "gaussian",
+        "ew": 180,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 634.7,
+        "depth": 0.2,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 98,
+        "el": "Si II",
+        "ep": 8.12
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.09,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 66,
+        "el": "Ca II K",
+        "ep": 0.0
+      }
+    ]
+  },
+  "B8Ia": {
+    "temp": 12100,
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.65,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 996,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.62,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 875,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.55,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 800,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.45,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 520,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 587.6,
+        "depth": 0.3,
+        "width": 0.8,
+        "profile": "gaussian",
+        "ew": 300,
+        "el": "He I D₃",
+        "ep": 20.96
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.22,
+        "width": 0.8,
+        "profile": "gaussian",
+        "ew": 181,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 634.7,
+        "depth": 0.2,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 100,
+        "el": "Si II",
+        "ep": 8.12
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.09,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 65,
+        "el": "Ca II K",
+        "ep": 0.0
+      }
+    ]
+  },
+  "A0V": {
+    "temp": 9600,
+    "lines": [
+      {
+        "wl": 656.3,
+        "depth": 0.75,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1200,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.8,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1100,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.72,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 950,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.55,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 600,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.14,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 113,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.11,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 85,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 634.7,
+        "depth": 0.08,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 44,
+        "el": "Si II",
+        "ep": 8.12
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.08,
+        "width": 0.35,
+        "profile": "voigt",
+        "ew": 42,
+        "el": "Na I D₁",
+        "ep": 0.0
+      }
+    ]
+  },
+  "A1V": {
+    "temp": 9940,
+    "lines": [
+      {
+        "wl": 656.3,
+        "depth": 0.8,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1300,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.85,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1250,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.75,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1000,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.6,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 700,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.1,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 80,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.08,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 60,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 634.7,
+        "depth": 0.1,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 51,
+        "el": "Si II",
+        "ep": 8.12
+      },
+      {
+        "wl": 448.1,
+        "depth": 0.18,
+        "width": 0.2,
+        "profile": "gaussian",
+        "ew": 50,
+        "el": "Mg II",
+        "ep": 8.86
+      }
+    ]
+  },
+  "A5V": {
+    "temp": 8200,
+    "lines": [
+      {
+        "wl": 656.3,
+        "depth": 0.7,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1000,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.75,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 900,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.68,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 800,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.6,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 640,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.3,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 250,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.24,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 190,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.18,
+        "width": 0.35,
+        "profile": "voigt",
+        "ew": 90,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 448.1,
+        "depth": 0.12,
+        "width": 0.2,
+        "profile": "gaussian",
+        "ew": 40,
+        "el": "Mg II",
+        "ep": 8.86
+      }
+    ]
+  },
+  "F0V": {
+    "temp": 7350,
+    "lines": [
+      {
+        "wl": 656.3,
+        "depth": 0.62,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 700,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.62,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 560,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.58,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 520,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.52,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 440,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.44,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 363,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.36,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 286,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.3,
+        "width": 0.35,
+        "profile": "voigt",
+        "ew": 175,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.21,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 85,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      }
+    ]
+  },
+  "F5V": {
+    "temp": 6700,
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.55,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 450,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.55,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 450,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.55,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 420,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.5,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 380,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.46,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 360,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.45,
+        "width": 0.9,
+        "profile": "voigt",
+        "ew": 320,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.4,
+        "width": 0.35,
+        "profile": "voigt",
+        "ew": 240,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.3,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 120,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      }
+    ]
+  },
+  "G0V": {
+    "temp": 6000,
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.78,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 716,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.66,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 573,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.51,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 367,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.55,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 361,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.44,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 319,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.37,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 252,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.36,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 245,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.41,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 181,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      }
+    ]
+  },
+  "G2V": {
+    "temp": 5778,
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.85,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 800,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.72,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 640,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.6,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 400,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.5,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 350,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.42,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 300,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.35,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 230,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.3,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 200,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.3,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 180,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ]
+  },
+  "G5V": {
+    "temp": 5660,
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.86,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 820,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.73,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 656,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.6,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 404,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.46,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 319,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.39,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 273,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.33,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 224,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.32,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 210,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.3,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 178,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ]
+  },
+  "K0V": {
+    "temp": 5200,
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.9,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 900,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.78,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 720,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.62,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 420,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.45,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 320,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.5,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 250,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.48,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 220,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.3,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 200,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.28,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 170,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ]
+  },
+  "K1.5III": {
+    "temp": 4286,
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.9,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 950,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.78,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 760,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.75,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 600,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.7,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 550,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.6,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 350,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.55,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 320,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.3,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 200,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.22,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 130,
+        "el": "Hδ",
+        "ep": 10.2
+      }
+    ]
+  },
+  "K5V": {
+    "temp": 4400,
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.92,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 1000,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.78,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 755,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.73,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 578,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.67,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 521,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.59,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 334,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.54,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 311,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.3,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 196,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.22,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 130,
+        "el": "Hδ",
+        "ep": 10.2
+      }
+    ]
+  },
+  "M0V": {
+    "temp": 3850,
+    "lines": [
+      {
+        "wl": 589.0,
+        "depth": 0.85,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 791,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 705.3,
+        "depth": 0.35,
+        "width": 3.0,
+        "profile": "gaussian",
+        "ew": 700,
+        "el": "TiO γ",
+        "ep": 0.0
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.71,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 696,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.76,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 645,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.61,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 576,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.66,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 445,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.55,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 339,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.27,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 168,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ]
+  },
+  "M1Iab": {
+    "temp": 3600,
+    "lines": [
+      {
+        "wl": 705.3,
+        "depth": 0.55,
+        "width": 3.0,
+        "profile": "gaussian",
+        "ew": 1200,
+        "el": "TiO γ",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.9,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 900,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.8,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 700,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.6,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 550,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.7,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 500,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.52,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 470,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.55,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 350,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.25,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 150,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ]
+  },
+  "M2V": {
+    "temp": 3550,
+    "lines": [
+      {
+        "wl": 705.3,
+        "depth": 0.57,
+        "width": 3.0,
+        "profile": "gaussian",
+        "ew": 1256,
+        "el": "TiO γ",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.9,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 906,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.78,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 682,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.59,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 541,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.7,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 500,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.51,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 462,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.55,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 350,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.25,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 148,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ]
+  },
+  "M5V": {
+    "temp": 2800,
+    "lines": [
+      {
+        "wl": 705.3,
+        "depth": 0.8,
+        "width": 3.0,
+        "profile": "gaussian",
+        "ew": 1900,
+        "el": "TiO γ",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.92,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 1000,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.7,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 500,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.55,
+        "width": 0.6,
+        "profile": "gaussian",
+        "ew": 480,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.45,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 400,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.55,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 350,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 396.8,
+        "depth": 0.4,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 340,
+        "el": "Ca II H",
+        "ep": 0.0
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.2,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 120,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ]
+  }
+}

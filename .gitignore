@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+
+# Cloned engine source — investigated in Phase 0, not part of the app build.
+# The built artifacts live in public/engine/ instead.
+/stellarium-web-engine
+
+# Emscripten SDK installed locally to build the engine (~2 GB). Not part of the
+# repo; reinstall with `emsdk install 1.39.17` (see PHASE0-FINDINGS.md §6).
+/emsdk

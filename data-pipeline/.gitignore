@@ -1,0 +1,8 @@
+# Large downloads (survey FITS, PHOENIX grid, per-star spectra) — never commit.
+downloads/
+
+# NIST cache is reproducible from the network; keep it out of the repo.
+nist_lines.tsv
+
+# The output JSON (< 1 MB each) IS committed — it is the source of truth the app
+# imports. So output/ is intentionally NOT ignored.

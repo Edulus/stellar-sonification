@@ -1,0 +1,25 @@
+{
+  "name": "stellarium-sonification",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "A web-based planetarium that lets users hear stars sing their absorption-line spectra.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "verify:engine": "node scripts/verify-phase0.mjs",
+    "verify:extract": "node scripts/verify-extract.mjs",
+    "verify:seed": "node scripts/verify-seed.mjs",
+    "verify:slice": "node scripts/verify-slice.mjs",
+    "verify:tooltip": "node scripts/verify-tooltip.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}

@@ -1,0 +1,416 @@
+{
+  "SOL": {
+    "name": "Sol",
+    "aliases": [
+      "Sun"
+    ],
+    "hip": null,
+    "type": "G2V",
+    "temp": 5778,
+    "rv": 0,
+    "color": "#f5e6a3",
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.85,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 800,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.6,
+        "width": 0.4,
+        "profile": "voigt",
+        "ew": 400,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.55,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 380,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.5,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 350,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.45,
+        "width": 0.3,
+        "profile": "gaussian",
+        "ew": 200,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.4,
+        "width": 0.25,
+        "profile": "gaussian",
+        "ew": 150,
+        "el": "Fe I",
+        "ep": 0.86
+      }
+    ],
+    "dataSource": "curated"
+  },
+  "HIP91262": {
+    "name": "Vega",
+    "aliases": [
+      "alf Lyr",
+      "alpha Lyrae"
+    ],
+    "hip": 91262,
+    "type": "A0V",
+    "temp": 9600,
+    "rv": -13.9,
+    "color": "#cce0ff",
+    "lines": [
+      {
+        "wl": 656.3,
+        "depth": 0.75,
+        "width": 2.0,
+        "profile": "lorentzian",
+        "ew": 1200,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.8,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 1100,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.7,
+        "width": 1.5,
+        "profile": "lorentzian",
+        "ew": 900,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.55,
+        "width": 1.2,
+        "profile": "lorentzian",
+        "ew": 600,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 448.1,
+        "depth": 0.15,
+        "width": 0.2,
+        "profile": "gaussian",
+        "ew": 40,
+        "el": "Mg II",
+        "ep": 8.86
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.08,
+        "width": 0.15,
+        "profile": "gaussian",
+        "ew": 20,
+        "el": "Fe I",
+        "ep": 0.86
+      }
+    ],
+    "dataSource": "curated"
+  },
+  "HIP27989": {
+    "name": "Betelgeuse",
+    "aliases": [
+      "alf Ori",
+      "alpha Orionis"
+    ],
+    "hip": 27989,
+    "type": "M1Iab",
+    "temp": 3600,
+    "rv": 21.9,
+    "color": "#ffb088",
+    "lines": [
+      {
+        "wl": 705.3,
+        "depth": 0.65,
+        "width": 3.0,
+        "profile": "gaussian",
+        "ew": 1500,
+        "el": "TiO γ",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.9,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 900,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.8,
+        "width": 0.6,
+        "profile": "voigt",
+        "ew": 700,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 393.4,
+        "depth": 0.6,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 550,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.7,
+        "width": 0.5,
+        "profile": "gaussian",
+        "ew": 500,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.55,
+        "width": 0.4,
+        "profile": "gaussian",
+        "ew": 350,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      }
+    ],
+    "dataSource": "curated"
+  },
+  "HIP32349": {
+    "name": "Sirius",
+    "aliases": [
+      "alf CMa",
+      "alpha Canis Majoris",
+      "9 CMa"
+    ],
+    "hip": 32349,
+    "type": "A1V",
+    "temp": 9940,
+    "rv": -5.5,
+    "color": "#d4e8ff",
+    "lines": [
+      {
+        "wl": 656.3,
+        "depth": 0.8,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 1300,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 486.1,
+        "depth": 0.85,
+        "width": 2.0,
+        "profile": "lorentzian",
+        "ew": 1250,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.75,
+        "width": 1.7,
+        "profile": "lorentzian",
+        "ew": 1000,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 410.2,
+        "depth": 0.6,
+        "width": 1.4,
+        "profile": "lorentzian",
+        "ew": 700,
+        "el": "Hδ",
+        "ep": 10.2
+      },
+      {
+        "wl": 448.1,
+        "depth": 0.18,
+        "width": 0.25,
+        "profile": "gaussian",
+        "ew": 50,
+        "el": "Mg II",
+        "ep": 8.86
+      },
+      {
+        "wl": 516.9,
+        "depth": 0.12,
+        "width": 0.2,
+        "profile": "gaussian",
+        "ew": 35,
+        "el": "Fe II",
+        "ep": 2.89
+      }
+    ],
+    "dataSource": "curated"
+  },
+  "HIP69673": {
+    "name": "Arcturus",
+    "aliases": [
+      "alf Boo",
+      "alpha Bootis"
+    ],
+    "hip": 69673,
+    "type": "K1.5III",
+    "temp": 4286,
+    "rv": -5.2,
+    "color": "#ffd4a0",
+    "lines": [
+      {
+        "wl": 393.4,
+        "depth": 0.9,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 950,
+        "el": "Ca II K",
+        "ep": 0.0
+      },
+      {
+        "wl": 589.0,
+        "depth": 0.75,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 600,
+        "el": "Na I D₁",
+        "ep": 0.0
+      },
+      {
+        "wl": 422.7,
+        "depth": 0.7,
+        "width": 0.5,
+        "profile": "voigt",
+        "ew": 550,
+        "el": "Ca I",
+        "ep": 0.0
+      },
+      {
+        "wl": 527.0,
+        "depth": 0.6,
+        "width": 0.35,
+        "profile": "gaussian",
+        "ew": 350,
+        "el": "Fe I",
+        "ep": 0.86
+      },
+      {
+        "wl": 516.7,
+        "depth": 0.55,
+        "width": 0.4,
+        "profile": "gaussian",
+        "ew": 300,
+        "el": "Mg I b₁",
+        "ep": 2.71
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.3,
+        "width": 0.4,
+        "profile": "voigt",
+        "ew": 200,
+        "el": "Hα",
+        "ep": 10.2
+      }
+    ],
+    "dataSource": "curated"
+  },
+  "HIP24436": {
+    "name": "Rigel",
+    "aliases": [
+      "bet Ori",
+      "beta Orionis"
+    ],
+    "hip": 24436,
+    "type": "B8Ia",
+    "temp": 12100,
+    "rv": 17.8,
+    "color": "#b8d4ff",
+    "lines": [
+      {
+        "wl": 486.1,
+        "depth": 0.65,
+        "width": 2.2,
+        "profile": "lorentzian",
+        "ew": 1000,
+        "el": "Hβ",
+        "ep": 10.2
+      },
+      {
+        "wl": 434.0,
+        "depth": 0.55,
+        "width": 1.8,
+        "profile": "lorentzian",
+        "ew": 800,
+        "el": "Hγ",
+        "ep": 10.2
+      },
+      {
+        "wl": 656.3,
+        "depth": 0.4,
+        "width": 2.5,
+        "profile": "lorentzian",
+        "ew": 800,
+        "el": "Hα",
+        "ep": 10.2
+      },
+      {
+        "wl": 587.6,
+        "depth": 0.3,
+        "width": 1.0,
+        "profile": "voigt",
+        "ew": 300,
+        "el": "He I D₃",
+        "ep": 20.96
+      },
+      {
+        "wl": 447.1,
+        "depth": 0.25,
+        "width": 0.8,
+        "profile": "voigt",
+        "ew": 200,
+        "el": "He I",
+        "ep": 20.96
+      },
+      {
+        "wl": 634.7,
+        "depth": 0.2,
+        "width": 0.4,
+        "profile": "gaussian",
+        "ew": 100,
+        "el": "Si II",
+        "ep": 8.12
+      }
+    ],
+    "dataSource": "curated"
+  }
+}
