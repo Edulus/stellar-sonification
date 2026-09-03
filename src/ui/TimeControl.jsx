@@ -65,33 +65,47 @@ export default function TimeControl({ bridge }) {
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Until the engine exists there is nothing to drive. Acting anyway would
+  // silently no-op the bridge call while still flipping the local mode state
+  // — leaving the badge claiming "frozen" over a clock that is in fact live
+  // and ticking. The engine takes seconds to come up on a cold load (1.2MB of
+  // WASM + skydata), so this window is every first visit, not a rare race.
+  const ready = !!bridge;
+  const pending = fromInputs(dateStr, timeStr); // null while a field is blank/invalid
+
   const goLive = () => {
-    bridge?.setLive(true);
+    if (!ready) return;
+    bridge.setLive(true);
     setLiveState(true);
     setOpen(false);
   };
 
   const goTonight = () => {
-    bridge?.goToTonight();
+    if (!ready) return;
+    bridge.goToTonight();
     setLiveState(false);
     setOpen(false);
   };
 
   const applyCustom = () => {
-    const d = fromInputs(dateStr, timeStr);
-    if (!d) return;
-    bridge?.setDateTime(d);
+    if (!ready || !pending) return;
+    bridge.setDateTime(pending);
     setLiveState(false);
-    setNow(d);
+    setNow(pending);
     setOpen(false);
   };
 
   return (
     <div style={S.root}>
-      <button onClick={() => setOpen((o) => !o)} style={S.trigger(open)}>
-        <span style={{ ...S.dot, background: live ? "#6fe0a0" : "#ffb85c" }} />
-        {live ? "LIVE" : "SET"} {fmt(now)} UTC
-        <span style={{ opacity: 0.5, marginLeft: 4 }}>{open ? "▲" : "▼"}</span>
+      <button
+        onClick={() => ready && setOpen((o) => !o)}
+        style={S.trigger(open, ready)}
+        disabled={!ready}
+        title={ready ? "Set the date and time (UTC)" : "Waiting for the sky engine to load"}
+      >
+        <span style={{ ...S.dot, background: !ready ? "#7d8496" : live ? "#6fe0a0" : "#ffb85c" }} />
+        {!ready ? "SKY LOADING…" : `${live ? "LIVE" : "SET"} ${fmt(now)} UTC`}
+        {ready && <span style={{ opacity: 0.5, marginLeft: 4 }}>{open ? "▲" : "▼"}</span>}
       </button>
 
       {open && (
@@ -112,7 +126,12 @@ export default function TimeControl({ bridge }) {
           </div>
 
           <div style={S.actions}>
-            <button onClick={applyCustom} style={S.btn} title="Jump to this exact date/time and freeze there">
+            <button
+              onClick={applyCustom}
+              style={{ ...S.btn, ...(pending ? null : S.btnDisabled) }}
+              disabled={!pending}
+              title={pending ? "Jump to this exact date/time and freeze there" : "Fill in both date and time first"}
+            >
               SET
             </button>
             <button onClick={goTonight} style={S.btn} title="Solar midnight at the current location, right now">
@@ -140,16 +159,18 @@ const S = {
     fontFamily: "'IBM Plex Mono', 'Menlo', monospace",
     pointerEvents: "auto",
   },
-  trigger: (open) => ({
+  trigger: (open, ready = true) => ({
     background: open ? "rgba(120,150,200,0.18)" : "rgba(10,12,20,0.82)",
     border: `1px solid ${open ? "rgba(120,150,200,0.6)" : "rgba(100,110,135,0.45)"}`,
-    color: open ? "rgba(190,210,250,0.98)" : "rgba(200,208,225,0.92)",
+    color: ready
+      ? (open ? "rgba(190,210,250,0.98)" : "rgba(200,208,225,0.92)")
+      : "rgba(170,178,198,0.55)",
     fontFamily: "inherit",
     fontSize: 10,
     letterSpacing: 1,
     padding: "6px 11px",
     borderRadius: 3,
-    cursor: "pointer",
+    cursor: ready ? "pointer" : "default",
     transition: "all 0.2s",
     backdropFilter: "blur(4px)",
     textShadow: "0 1px 3px rgba(0,0,0,0.8)",
@@ -207,6 +228,12 @@ const S = {
     background: "rgba(110,224,160,0.14)",
     borderColor: "rgba(110,224,160,0.5)",
     color: "rgba(170,240,200,0.95)",
+  },
+  btnDisabled: {
+    background: "rgba(90,96,112,0.10)",
+    borderColor: "rgba(100,110,135,0.25)",
+    color: "rgba(160,166,184,0.45)",
+    cursor: "default",
   },
   foot: {
     marginTop: 8,

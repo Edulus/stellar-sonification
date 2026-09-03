@@ -59,9 +59,18 @@ screen space**:
 
 **Conclusion — Case B (no re-queryable projection).** Rings anchor to the **static cached
 hover position**. They will **NOT track the star during panning/zooming** — accepted v1
-degradation per the brief (Part 1.2, acceptance #7). The sky is also night-locked (frozen
-clock) so there is no autonomous drift; only a user pan/zoom would desync, and during a drag
-the cursor re-picks anyway. We pass a static `screenPos`, not a `positionQuery()`.
+degradation per the brief (Part 1.2, acceptance #7). We pass a static `screenPos`, not a
+`positionQuery()`.
+
+> **Correction (2026-09-03):** this section used to add "the sky is also night-locked (frozen
+> clock) so there is no autonomous drift." **That is no longer true** — the clock now runs live
+> by default (see CLAUDE.md's time-control bullet), so the sky *does* drift on its own. Measured
+> against a real star, holding still for 20 s: **~3 px at 50° FOV, ~6 px at 10°, ~8 px at 2°**
+> (well under the naive 15°/hr prediction, since apparent drift depends on where the star sits
+> relative to the pole). Ring animations live for seconds, so the desync stays sub-pixel in
+> practice and the static-position design still holds. It is only worth revisiting if rings ever
+> get much longer lifetimes — or if §11-C's forward projection lands, which would make the whole
+> question moot.
 
 The RA/Dec-radians foot-gun (CLAUDE.md) is therefore **not in play** — we never feed RA/Dec
 to a projection; we only consume already-computed screen pixels.

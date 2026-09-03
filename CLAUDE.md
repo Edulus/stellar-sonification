@@ -21,9 +21,12 @@ npm run verify:slice     # browser: silent selection, ▶ play-on-demand, curate
                          #   (needs `npm run dev` running + Playwright)
 npm run verify:tooltip   # browser: hover readout on a star AND a non-star, edge-flip, hide-on-leave
                          #   (needs `npm run dev` running + Playwright)
+npm run verify:sky       # browser: ground toggle, live/custom clock, and that both stay
+                         #   inert until the engine is ready
+                         #   (needs `npm run dev` running + Playwright)
 ```
 
-There is no lint step and no test runner; the `verify:*` scripts in `scripts/` are plain Node `.mjs` files run directly. Playwright is not a declared dependency — it must be installed in the environment for every `verify:*` script except `verify:extract` and `verify:seed` (the browser-free ones). `verify:engine`, `verify:slice` and `verify:tooltip` all need `npm run dev` running first.
+There is no lint step and no test runner; the `verify:*` scripts in `scripts/` are plain Node `.mjs` files run directly. Playwright is not a declared dependency — it must be installed in the environment for every `verify:*` script except `verify:extract` and `verify:seed` (the browser-free ones). `verify:engine`, `verify:slice`, `verify:tooltip` and `verify:sky` all need `npm run dev` running first.
 
 ## The engine must be built before the app runs
 
