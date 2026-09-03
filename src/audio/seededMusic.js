@@ -177,12 +177,24 @@ function lineToDegree(line, scaleOneOctave, p) {
   return best;
 }
 
+// How often an event is a rest rather than a note. The pen never rests — it
+// fills every slot of every bar — and neither did we, which measured out at
+// literally 0 rests across 5,554 events. Music needs somewhere to breathe;
+// this is the cheapest way to give a 4-bar piece phrasing.
+const REST_CHANCE = 0.16;
+
 /**
  * Pick a position in the EW-descending line order, biased toward the strong
  * lines — they should dominate the piece the way they dominate the spectrum.
+ *
+ * The exponent is the strength of that bias. It was 1.7, which put ~29% of all
+ * picks on the single strongest line and measured 39.8% average pitch-class
+ * dominance (one piece hit 64% — a drone, not a melody). 1.25 keeps the
+ * spectral hierarchy audible (strong lines still lead) while letting the rest
+ * of the spectrum be heard.
  */
 function pickLinePos(rng, n) {
-  return Math.min(n - 1, Math.floor(Math.pow(rng(), 1.7) * n));
+  return Math.min(n - 1, Math.floor(Math.pow(rng(), 1.25) * n));
 }
 
 /**
@@ -196,6 +208,15 @@ function buildBar(rng, { order, lines, scaleOneOctave, octaves, maxNotes, p, sta
   const seq = shuffle(LENGTH_SEQUENCES[Math.floor(rng() * LENGTH_SEQUENCES.length)], rng);
   const bar = [];
   for (const len of seq) {
+    // Rest — but never on the very first event of the piece, where silence
+    // just reads as "the play button didn't work".
+    if (!state.firstEvent && rng() < REST_CHANCE) {
+      bar.push(null);
+      for (let h = 0; h < RESOLUTION / len - 1; h++) bar.push(null);
+      state.lastDegree = null; // a rest breaks the repeat chain
+      continue;
+    }
+    state.firstEvent = false;
     const noteCount = Math.ceil(rng() * maxNotes);
     const usedDegrees = [];
     const notes = [];
@@ -207,7 +228,13 @@ function buildBar(rng, { order, lines, scaleOneOctave, octaves, maxNotes, p, sta
         const lineIdx = order[pickLinePos(rng, order.length)];
         const degree = lineToDegree(lines[lineIdx], scaleOneOctave, p);
         if (usedDegrees.some((d) => Math.abs(d - degree) <= 1)) continue;
+        // Don't immediately repeat the previous event's lead degree — that is
+        // what produced runs of up to 6 identical top notes. Only enforced
+        // while alternatives remain (a 3-line star has few) and only for the
+        // first attempts, so the loop always terminates.
+        if (n === 0 && attempt < 5 && order.length >= 4 && degree === state.lastDegree) continue;
         usedDegrees.push(degree);
+        if (n === 0) state.lastDegree = degree;
         // Voice leading — the one place we go beyond the pen. The pen drew a
         // register at random, which leaps by sevenths constantly. Here the
         // degree is fixed by the spectrum, so the only freedom left is WHICH
@@ -265,8 +292,8 @@ export function planSong(data, opts = {}) {
 
   const measures = [];
   // Per-voice pitch memory, so voice leading carries across bar lines.
-  const trebState = { last: null };
-  const bassState = { last: null };
+  const trebState = { last: null, lastDegree: null, firstEvent: true };
+  const bassState = { last: null, lastDegree: null, firstEvent: true };
   for (let m = 0; m < bars; m++) {
     // Each voice gets its own sub-stream, as the pen did with a per-clef
     // generator seeded from the main one — so the voices stay independent.

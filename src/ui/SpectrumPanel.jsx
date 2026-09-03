@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SPEC_MIN, SPEC_MAX } from "../audio/mappings.js";
 import { wlToRGB } from "../audio/color.js";
 
@@ -24,6 +24,61 @@ function legibleRGB([r, g, b], minLuma = 150) {
   return [mix(r), mix(g), mix(b)];
 }
 
+// Label layout constants, shared by the layout pass and the paint pass.
+const EL_FONT_LIT = "bold 10px monospace", EL_FONT = "9px monospace", WL_FONT = "8.5px monospace";
+// Each label is itself two lines (the wl number sits WL_DY-EL_DY = 11px above
+// its element symbol) — ROW_H must clear THAT plus the wl number's own glyph
+// height, or a stacked row's element symbol collides with the row below's wl
+// number. 14 didn't; 22 does (11px gap + ~8px ascender + pad).
+const ROW_H = 22, WL_DY = 17, EL_DY = 6, TOP_PAD = 13;
+const PLOT_H = 168, MARGIN_B = 42, MARGIN_L = 44, MARGIN_R = 16;
+
+// Text measurement needs a 2D context but not the on-screen one — using a
+// detached canvas keeps the layout pass a pure function of (lines, width), so
+// it can run in a memo and feed the canvas height instead of being computed
+// mid-paint (which forced the plot to absorb the label rows).
+let _measureCtx = null;
+function measureCtx() {
+  if (!_measureCtx) _measureCtx = document.createElement("canvas").getContext("2d");
+  return _measureCtx;
+}
+
+/**
+ * Assign each line's label to a row, stacking any that would collide.
+ *
+ * Hot/solar-type templates cluster up to 5 lines (the Balmer series + Ca II
+ * H&K) within ~20nm — tighter than a single label at a readable size, let
+ * alone one per line, so on one row they print as an illegible smear. Labels
+ * are measured at the larger "lit" font so the layout never shifts when
+ * hover/chord lights one up mid-view.
+ *
+ * @returns {{rowOf: number[], maxRow: number}}
+ */
+function computeLabelLayout(lines, width) {
+  const rowOf = new Array(lines.length).fill(0);
+  if (!lines.length) return { rowOf, maxRow: 0 };
+  const ctx = measureCtx();
+  const pw = width - MARGIN_L - MARGIN_R;
+  const toX = (wl) => MARGIN_L + ((wl - SPEC_MIN) / (SPEC_MAX - SPEC_MIN)) * pw;
+
+  ctx.font = EL_FONT_LIT;
+  const elW = lines.map((l) => ctx.measureText(l.el).width);
+  ctx.font = WL_FONT;
+  const wlW = lines.map((l) => ctx.measureText(`${l.wl}`).width);
+
+  const order = lines
+    .map((line, i) => ({ i, x: toX(line.wl), halfW: Math.max(elW[i], wlW[i]) / 2 + 3 }))
+    .sort((a, b) => a.x - b.x);
+  const rowLast = []; // rowLast[row] = { x, halfW } of the last label placed there
+  order.forEach(({ i, x, halfW }) => {
+    let row = 0;
+    while (row < 6 && rowLast[row] && x - rowLast[row].x < rowLast[row].halfW + halfW) row++;
+    rowLast[row] = { x, halfW };
+    rowOf[i] = row;
+  });
+  return { rowOf, maxRow: Math.max(...rowOf) };
+}
+
 function blackbody(wl_nm, T) {
   const wl = wl_nm * 1e-9;
   const h = 6.626e-34, c = 3e8, k = 1.381e-23;
@@ -38,7 +93,17 @@ export default function SpectrumPanel({
   const canvasRef = useRef(null);
   const [width, setWidth] = useState(720);
   const [activeIdx, setActiveIdx] = useState(null);
-  const height = 240;
+
+  // Label rows are computed before paint so the CANVAS can grow to fit them.
+  // Previously this ran mid-paint and the plot area absorbed every stacked row
+  // — a line-rich star (exactly the interesting kind) lost up to half its
+  // flux-curve height to its own labels.
+  const { rowOf, maxRow } = useMemo(
+    () => computeLabelLayout(data?.lines ?? [], width),
+    [data, width]
+  );
+  const marginTop = TOP_PAD + WL_DY + maxRow * ROW_H;
+  const height = marginTop + PLOT_H + MARGIN_B;
 
   // Responsive width from the wrapper.
   useLayoutEffect(() => {
@@ -60,42 +125,10 @@ export default function SpectrumPanel({
     c.width = width * dpr; c.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const m = { r: 16, b: 42, l: 44 };
+    const m = { t: marginTop, r: MARGIN_R, b: MARGIN_B, l: MARGIN_L };
     const pw = width - m.l - m.r;
+    const ph = PLOT_H; // constant now — the canvas grew for the labels instead
     const toX = (wl) => m.l + ((wl - SPEC_MIN) / (SPEC_MAX - SPEC_MIN)) * pw;
-
-    // Label declutter pre-pass. Hot/solar-type templates cluster up to 5 lines
-    // (the Balmer series + Ca II H&K) within ~20nm — at the plot's usual width
-    // that's tighter than even a single label, let alone one per line, so they
-    // print as an illegible smear. Stack colliding labels onto higher rows
-    // instead, sized with the larger "lit" font so the layout never shifts
-    // when hover/chord starts lighting one of them up mid-view.
-    const EL_FONT_LIT = "bold 10px monospace", EL_FONT = "9px monospace", WL_FONT = "8.5px monospace";
-    // Each label is itself two lines (wl number sitting WL_DY-EL_DY=11px above
-    // its element symbol) -- ROW_H must clear THAT plus the wl number's own
-    // glyph height, or a stacked row's element symbol collides with the row
-    // below's wl number. 14 didn't; 22 does (11px gap + ~8px ascender + pad).
-    const ROW_H = 22, WL_DY = 17, EL_DY = 6, TOP_PAD = 13;
-    const rowOf = new Array(data.lines.length).fill(0);
-    {
-      ctx.font = EL_FONT_LIT;
-      const elW = data.lines.map((l) => ctx.measureText(l.el).width);
-      ctx.font = WL_FONT;
-      const wlW = data.lines.map((l) => ctx.measureText(`${l.wl}`).width);
-      const order = data.lines
-        .map((line, i) => ({ i, x: toX(line.wl), halfW: Math.max(elW[i], wlW[i]) / 2 + 3 }))
-        .sort((a, b) => a.x - b.x);
-      const rowLast = []; // rowLast[row] = { x, halfW } of the last label placed there
-      order.forEach(({ i, x, halfW }) => {
-        let row = 0;
-        while (row < 6 && rowLast[row] && x - rowLast[row].x < rowLast[row].halfW + halfW) row++;
-        rowLast[row] = { x, halfW };
-        rowOf[i] = row;
-      });
-    }
-    const maxRow = rowOf.length ? Math.max(...rowOf) : 0;
-    m.t = TOP_PAD + WL_DY + maxRow * ROW_H;
-    const ph = height - m.t - m.b;
 
     let maxBB = 0;
     for (let wl = SPEC_MIN; wl <= SPEC_MAX; wl += 1) {
@@ -191,12 +224,15 @@ export default function SpectrumPanel({
     ctx.fillStyle = "rgba(195,200,218,0.7)"; ctx.font = "9.5px monospace"; ctx.textAlign = "center";
     for (let wl = 400; wl <= 750; wl += 50) ctx.fillText(`${wl}`, toX(wl), stripY + stripH + 14);
     ctx.fillText("wavelength (nm)", m.l + pw / 2, stripY + stripH + 26);
-  }, [data, activeIdx, playingIdx, chordIndices, width]);
+  }, [data, activeIdx, playingIdx, chordIndices, width, rowOf, marginTop, height]);
 
   const nearestLine = useCallback((clientX) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const mx = clientX - rect.left;
-    const m = { l: 44, r: 16 }; const pw = width - m.l - m.r;
+    // Same margins the paint pass uses — read from the shared constants so
+    // hit-testing can't silently drift out of step with what's drawn.
+    const pw = width - MARGIN_L - MARGIN_R;
+    const m = { l: MARGIN_L };
     const wl = SPEC_MIN + ((mx - m.l) / pw) * (SPEC_MAX - SPEC_MIN);
     const nmPerPx = (SPEC_MAX - SPEC_MIN) / pw;
     let best = null, bestD = Infinity;
