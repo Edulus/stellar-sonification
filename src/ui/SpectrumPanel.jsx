@@ -60,9 +60,42 @@ export default function SpectrumPanel({
     c.width = width * dpr; c.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const m = { t: 30, r: 16, b: 42, l: 44 };
-    const pw = width - m.l - m.r, ph = height - m.t - m.b;
+    const m = { r: 16, b: 42, l: 44 };
+    const pw = width - m.l - m.r;
     const toX = (wl) => m.l + ((wl - SPEC_MIN) / (SPEC_MAX - SPEC_MIN)) * pw;
+
+    // Label declutter pre-pass. Hot/solar-type templates cluster up to 5 lines
+    // (the Balmer series + Ca II H&K) within ~20nm — at the plot's usual width
+    // that's tighter than even a single label, let alone one per line, so they
+    // print as an illegible smear. Stack colliding labels onto higher rows
+    // instead, sized with the larger "lit" font so the layout never shifts
+    // when hover/chord starts lighting one of them up mid-view.
+    const EL_FONT_LIT = "bold 10px monospace", EL_FONT = "9px monospace", WL_FONT = "8.5px monospace";
+    // Each label is itself two lines (wl number sitting WL_DY-EL_DY=11px above
+    // its element symbol) -- ROW_H must clear THAT plus the wl number's own
+    // glyph height, or a stacked row's element symbol collides with the row
+    // below's wl number. 14 didn't; 22 does (11px gap + ~8px ascender + pad).
+    const ROW_H = 22, WL_DY = 17, EL_DY = 6, TOP_PAD = 13;
+    const rowOf = new Array(data.lines.length).fill(0);
+    {
+      ctx.font = EL_FONT_LIT;
+      const elW = data.lines.map((l) => ctx.measureText(l.el).width);
+      ctx.font = WL_FONT;
+      const wlW = data.lines.map((l) => ctx.measureText(`${l.wl}`).width);
+      const order = data.lines
+        .map((line, i) => ({ i, x: toX(line.wl), halfW: Math.max(elW[i], wlW[i]) / 2 + 3 }))
+        .sort((a, b) => a.x - b.x);
+      const rowLast = []; // rowLast[row] = { x, halfW } of the last label placed there
+      order.forEach(({ i, x, halfW }) => {
+        let row = 0;
+        while (row < 6 && rowLast[row] && x - rowLast[row].x < rowLast[row].halfW + halfW) row++;
+        rowLast[row] = { x, halfW };
+        rowOf[i] = row;
+      });
+    }
+    const maxRow = rowOf.length ? Math.max(...rowOf) : 0;
+    m.t = TOP_PAD + WL_DY + maxRow * ROW_H;
+    const ph = height - m.t - m.b;
 
     let maxBB = 0;
     for (let wl = SPEC_MIN; wl <= SPEC_MAX; wl += 1) {
@@ -144,17 +177,18 @@ export default function SpectrumPanel({
         ctx.fillStyle = glow; ctx.fillRect(x - 34, m.t, 68, ph);
       }
       const [tr, tg, tb] = legibleRGB([lr, lg, lb]);
+      const rowY = rowOf[i] * ROW_H;
       ctx.fillStyle = isP ? "#ffdd55" : colored ? `rgb(${tr},${tg},${tb})` : "rgba(205,210,225,0.75)";
-      ctx.font = lit ? "bold 9px monospace" : "8px monospace";
+      ctx.font = lit ? EL_FONT_LIT : EL_FONT;
       ctx.textAlign = "center";
-      ctx.fillText(line.el, x, m.t - 6);
-      ctx.font = "7px monospace";
+      ctx.fillText(line.el, x, m.t - EL_DY - rowY);
+      ctx.font = WL_FONT;
       ctx.fillStyle = colored ? `rgba(${tr},${tg},${tb},0.85)` : "rgba(190,195,212,0.6)";
-      ctx.fillText(`${line.wl}`, x, m.t - 16);
+      ctx.fillText(`${line.wl}`, x, m.t - WL_DY - rowY);
     });
 
     // Axis.
-    ctx.fillStyle = "rgba(195,200,218,0.7)"; ctx.font = "8px monospace"; ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(195,200,218,0.7)"; ctx.font = "9.5px monospace"; ctx.textAlign = "center";
     for (let wl = 400; wl <= 750; wl += 50) ctx.fillText(`${wl}`, toX(wl), stripY + stripH + 14);
     ctx.fillText("wavelength (nm)", m.l + pw / 2, stripY + stripH + 26);
   }, [data, activeIdx, playingIdx, chordIndices, width]);
