@@ -90,11 +90,11 @@ Clicking any star in the sky populates `StarInfoPanel` with correct metadata and
 
 ## Phase 2 — Sonification Engine
 
-**Goal**: Click a star and hear it.
+**Goal**: Select a star and hear it through explicit playback controls.
 
 ### Tasks
 
-- [ ] Extract `mappings.js` from `stellar-sonification.jsx`
+- [x] Extract `mappings.js` from `stellar-sonification.jsx`
   - `wlToFreq(wl)` — wavelength → pitch
   - `depthToGain(depth)` — absorption depth → amplitude
   - `widthToQ(width)` — line width → filter Q
@@ -103,24 +103,26 @@ Clicking any star in the sky populates `StarInfoPanel` with correct metadata and
   - `rvToDetune(rv)` — radial velocity → detune
   - `epToHarmonics(ep)` — excitation potential → harmonic richness
   - Export all as pure functions with no side effects
-- [ ] Extract `reverb.js` — algorithmic reverb builder
+- [x] Extract `reverb.js` — algorithmic reverb builder
   - 4 parallel delay lines (29ms, 37ms, 53ms, 67ms)
   - Feedback gains: [0.6, 0.55, 0.5, 0.45] + reverbAmt * 0.2
   - LP damping: 2500 - reverbAmt * 800 Hz
   - Takes AudioContext + reverbAmt, returns connected graph
-- [ ] Build `SonificationEngine.js`
-  - `init()` — create AudioContext (must be called from user gesture handler)
-  - `playLine(line, starRV)` — build oscillator bank, filter, ADSR, reverb; play for 1.2s
-  - `playSequence(starData)` — sort lines by EW desc, play sequentially with 80ms gaps
-  - `stop()` — stop all active nodes, clear node list
-  - `getParams(line, starRV)` — return computed params for UI display (no audio)
-- [ ] Wire into App: star click → resolve data → `sonificationEngine.playLine(firstLine, rv)` OR auto-sequence
+- [x] Build `SonificationEngine.js`
+  - `ensureContext()` — lazily create/resume AudioContext from a user gesture
+  - `playLine(line, starRV = 0)` — build oscillator bank, filter, ADSR, reverb
+  - `playSequence(data, opts = {})` — sort lines by EW desc and play sequentially
+  - `playChord(data, amount = params.harmonizeAmount)` — harmonize and play all lines together
+  - `playSeed(data, opts = {})` — render the deterministic seeded arrangement
+  - `stop()` — stop active click/sequence/chord/SEED playback
+  - `getParams(line, starRV = 0)` — return computed params for UI display (no audio)
+- [x] Wire into App: star selection resolves data and stays silent; the panel's ▶ routes the selected mode to `playSequence`, `playChord`, or `playSeed`, while a spectrum-line click calls `playLine`
 - [ ] Verify audio plays correctly in Chrome, Firefox, Safari (AudioContext quirks differ by browser)
-- [ ] Handle edge case: clicking a new star while previous is still playing → stop + play new
+- [x] Handle edge case: selecting a new star while previous click playback is still playing → stop old playback and load the new spectrum
 
 ### Acceptance criteria
 
-Clicking Sol produces the same audio output as the prototype. Clicking Vega sounds distinctly different (hydrogen-dominated, higher harmonics). Clicking a random dim star with template data produces reasonable audio.
+Selecting Sol or Vega and pressing ▶ produces distinct audio from the same spectral mappings; selecting a random dim star with template data produces reasonable audio. Selection itself remains silent, with playback explicit through the panel or hover mode.
 
 ### Audio polish (can defer)
 
@@ -135,10 +137,10 @@ Clicking Sol produces the same audio output as the prototype. Clicking Vega soun
 **Goal**: Let the user hear a star's absorption lines played *simultaneously* as a
 musically-coherent chord, alongside the existing sequential playback.
 
-> **Status: DONE (prototype).** Built and verified in the standalone
-> `stellar-sonification.jsx` prototype. Not yet ported into the `src/` engine app —
-> that port (and an ARCHITECTURE.md section) happens when chord mode moves into the
-> modular `SonificationEngine`.
+> **Status: DONE.** Built and verified first in the standalone
+> `stellar-sonification.jsx` prototype, then ported into the modular `src/` app.
+> `SonificationEngine.playChord()` is live, and `src/ui/App.jsx` routes CHORD mode
+> through it.
 
 ### What was built
 
@@ -146,8 +148,8 @@ musically-coherent chord, alongside the existing sequential playback.
       `wlToFreq` pitch toward the nearest just-intonation consonant interval relative
       to the strongest-EW root line. Exports `harmonizeChord`, `describeChord`,
       `CHORD_TIMING`, `centsBetween`. No Web Audio deps.
-- [x] Chord playback (`playChord`) in `StellarSonification` — all lines at once through
-      the same oscillator→filter→ADSR→reverb graph, EW-staggered onsets, 1/√N gain
+- [x] Chord playback (`playChord`) in `SonificationEngine` — all lines at once through
+      the same oscillator→filter→ADSR voice topology, EW-staggered onsets, 1/√N gain
       scaling, and a chord-level master swell/release envelope.
 - [x] Harmonize slider (0–100%) — blends raw cluster → fully consonant chord; also
       sweeps random detune, filter brightness, and reverb wetness for an audible
