@@ -18,7 +18,7 @@
 - [x] Copy engine artifacts to `public/engine/` (+ skydata to `public/skydata/`)
 - [x] Create `StellariumBridge.js` — wrapper class that initializes engine into a canvas ref
 - [x] Wire selection event → log star identifier to console — via `stel.change((obj,attr)=>…)` filtered to `attr==='selection'` (event-based, not polling)
-- [x] Verify `hip`, `hd`, `spectralType`, `magnitude` — ⚠️ **partial**: `magnitude` (+ name/BV/distance/radec) come live from the engine; `hip`/`spectralType` need a richer catalog than the bundled sample (data-tier gap; see Acceptance + PHASE0-FINDINGS.md §9). Bridge extraction of all fields proven by `verify:extract`.
+- [x] Verify `hip`, `hd`, `spectralType`, `magnitude` — ⚠️ **partial**: `magnitude` (+ name/BV/distance/radec) come live from the engine; the bundled sample splits named stars from HIP-only stars, has no HD/Gaia ids, and has no spectral types in the measured sample (data-tier gap; see Acceptance + PHASE0-FINDINGS.md §11-A). Bridge extraction of all fields proven by `verify:extract`.
 - [x] Create `SkyCanvas.jsx` — React component that mounts bridge, fills viewport
 - [x] Handle basic nav: drag to pan, scroll to zoom — the engine's own `canvas.js` wires this for free
 - [x] Confirm WASM loads correctly, WebGL context is healthy, no React re-render interference
@@ -27,7 +27,7 @@
 
 Target: clicking Sirius logs `{ hip: 32349, name: "Sirius", spType: "A1V", vmag: -1.46, ... }`.
 
-**Result:** live selection of Sirius logs `{ name: "Sirius", magnitude: -1.44, bv, distance, radec, hip: null, spectralType: null }` — engine integration proven (`npm run verify:engine`). `hip`/`spType` are `null` only because the bundled `test-skydata` catalog omits them; the bridge produces the exact target payload (`hip: 32349, spectralType: "A1V"`) when given a catalog that carries those fields (`npm run verify:extract`).
+**Result:** live selection of Sirius logs `{ name: "Sirius", magnitude: -1.44, bv, distance, radec, hip: null, spectralType: null }` — engine integration proven (`npm run verify:engine`). Sirius has `hip: null` because its bundled catalog record is named rather than HIP-keyed; other unnamed bundled stars can carry HIP ids. `spectralType` is absent across the measured bundled sample. The bridge produces the exact target payload (`hip: 32349, spectralType: "A1V"`) when given a catalog that carries those fields (`npm run verify:extract`).
 
 ### Risks
 
