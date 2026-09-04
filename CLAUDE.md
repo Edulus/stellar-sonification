@@ -73,11 +73,10 @@ The narrative docs ([docs/README.md](docs/README.md), [docs/ARCHITECTURE.md](doc
 
 - Spectral data reaches the app as JS modules (`bright-stars.js`, `spectral-templates.js`) — but they are thin adapters over [data-pipeline/output/](data-pipeline/output/)`bright-stars.json` / `spectral-templates.json`, which **do** exist and are committed. (An older revision of this file said they don't; they were added with the pipeline.) The docs' `catalogs.js` is what isn't built.
 - UI is `SkyCanvas.jsx` + `SpectrumPanel.jsx` + `SynthPanel.jsx` + `LocationPicker.jsx` + `GroundToggle.jsx` + `TimeControl.jsx` + `RingOverlay.jsx` + `ObjectTooltip.jsx`; the docs' `StarInfoPanel` / `ParamMappingPanel` are not built — `ObjectTooltip` covers part of what `StarInfoPanel` was meant to do, and `SynthPanel` covers `ParamMappingPanel`.
-- ARCHITECTURE.md's `StellariumBridge` sketch shows a polling `_pollSelection()` loop — that was the pre-Phase-0 guess and is **wrong**; the real bridge is event-based (see above).
 - [stellar-sonification.jsx](stellar-sonification.jsx) (repo root) is the original single-file prototype the `src/` modules were extracted from — reference only, not imported.
 - [harmonize.js](harmonize.js) (repo root, co-located with the prototype) is a standalone, browser-free module that snaps line frequencies onto a just-intonation consonance ladder. It is wired into **both** the prototype's chord mode and the `src/` app — [src/audio/harmonize.js](src/audio/harmonize.js) re-exports it (single source of truth, no copy) and `SonificationEngine.playChord` calls `harmonizeChord`. Earlier revisions of this file said `src/` didn't use it; that is no longer true.
 
-[docs/ROADMAP.md](docs/ROADMAP.md) tracks phases. It marks 0 and 2.5 ✅ COMPLETE, but its own status lags the code: 1 (data layer / `StarDataResolver`), 2 (sonification engine) and 3 (spectrum panel) are all built in `src/`, and parts of 5 (hover audio, ring overlay, location picker, hover tooltip) too. **Phase 4 (a catalog carrying HIP + spectral type) is the real open one** — everything the resolver can't do traces back to it. The engine is AGPL-3.0 — relevant if distributing modified engine builds.
+[docs/ROADMAP.md](docs/ROADMAP.md) tracks phase status and now distinguishes implemented Phase 1/3 core paths from their remaining open pieces. **Phase 4 (richer spectral/catalog data) is the main open data-expansion phase.** The engine is AGPL-3.0 — relevant if distributing modified engine builds.
 
 ## SEED mode
 
