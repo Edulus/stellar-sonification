@@ -295,31 +295,15 @@ This topology still describes each chord voice through oscillator bank → filte
 
 **Purpose**: Mount the engine, display overlays, manage state.
 
-**State shape**:
+`App.jsx` uses React hooks rather than one monolithic `AppState` object. The implemented state groups are:
 
-```typescript
-interface AppState {
-  // Engine state
-  engineReady: boolean;
-  location: { lat: number; lng: number };
-  time: Date;
+- selected/resolved spectral data, whose `dataSource` is currently only `'curated'` or `'template'`;
+- playback mode and spectrum highlight state;
+- sonification parameter state;
+- observer location, ground visibility, and engine-ready state;
+- hover-audio and hover-tooltip state.
 
-  // Selection state
-  selectedStar: StarIdentifier | null;
-  spectralData: StarSpectralData | null;
-  dataSource: 'curated' | 'survey' | 'template' | null;
-
-  // Audio state
-  isPlaying: boolean;
-  isSequencePlaying: boolean;
-  activeLineIndex: number | null;
-  hoveredLineIndex: number | null;
-
-  // UI state
-  showSpectrum: boolean;
-  showParamMapping: boolean;
-}
-```
+There is no `showParamMapping` state and no runtime `'survey'` data-source value in the current app.
 
 **Component responsibilities**:
 
