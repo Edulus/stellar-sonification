@@ -211,16 +211,27 @@ different chords; sequential mode is unchanged.
 
 **Goal**: Grow the curated bright star dataset and improve template coverage.
 
+> **Status: PHOENIX EXTRACTION PATH BUILT; REAL-GRID CALIBRATION PENDING.** The
+> existing `--phoenix` path now has a concrete PHOENIX-ACES HiRes input contract,
+> extraction/identification logic, diagnostics, protected-star guard, and browser-free
+> verification. The committed 22-template JSON is still the model output because a
+> real PHOENIX FITS grid was not available in the implementation environment.
+
 ### Tasks
 
-- [ ] Build `data-pipeline/build-bright-stars.py`
-  - Source: NIST Atomic Spectra Database + Kaler's "Stars and their Spectra" + published EW catalogs
-  - Target: top ~500 brightest stars (V < 4.5) with real line measurements
-  - Output: `bright-stars.json` keyed by HIP number
-- [ ] Build `data-pipeline/build-templates.py`
-  - Source: PHOENIX synthetic spectra (Husser et al. 2013)
-  - For each spectral type: compute synthetic spectrum, identify strongest absorption features, extract line list
-  - Output: `spectral-templates.json` with ~70 entries
+- [ ] Expand the curated bright-star dataset beyond the six protected seeds
+  - Existing `build-bright-stars.py` preserves the six seeds; survey expansion remains stubbed
+  - Long-term target remains a materially larger bright-star set with defensible measured/catalog data
+- [x] Implement the PHOENIX extraction path behind existing `build-templates.py --phoenix`
+  - Supported input: PHOENIX-ACES-AGSS-COND-2011 HiRes, solar metallicity
+  - Degrade to `R = 7500`, normalize against one globally calibrated pseudo-continuum, measure `wl/depth/width/ew`
+  - Identify `el/ep` through NIST in a common vacuum wavelength frame
+  - NIST cache now retains `log(gf)` when available for the operational 70% blend-dominance rule
+  - EW ranking, one-semitone spacing, diagnostics for all dropped features, and explicit TiO γ broad-feature path
+  - Out-of-grid hot keys use logged model fallback rather than mislabeling a cooler PHOENIX model
+  - `bright-stars.json` is byte-protected during template generation
+- [ ] Run the PHOENIX continuum-window sweep against real local G2V/A0V FITS, review Sol/Vega comparisons, then regenerate/review `spectral-templates.json`
+- [ ] Expand PHOENIX/template coverage beyond the current 22 starter keys where the chosen grid supports honest subtype mapping
 - [ ] Evaluate Gaia BP/RP as an intermediate data tier
   - `data-pipeline/extract-gaia-bprp.py`
   - Low-resolution but individual per star — could give unique (if coarse) sonification
@@ -231,7 +242,7 @@ different chords; sequential mode is unchanged.
 
 ### Acceptance criteria
 
-500+ stars have curated data. Every spectral subtype from O5V to M8III has a template. The resolution cascade never returns empty-handed.
+**Current PHOENIX milestone:** the extraction path is implemented and browser-free helper verification exists. Phase 4 remains open until a real-grid run demonstrates that the globally selected pseudo-continuum keeps PHOENIX G2V/A0V `depth` and `ew` in the curated Sol/Vega operating range and the resulting templates are reviewed. Broader catalog and template coverage remain subsequent Phase 4 work.
 
 ---
 
