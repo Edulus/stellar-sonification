@@ -7,6 +7,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import nist
 import phoenix
 
 
@@ -19,6 +20,17 @@ def check(name, ok):
 print("[phoenix] unit checks")
 vac = phoenix.air_to_vacuum_nm(500.0)
 check("air->vacuum direction/range", 500.10 < vac < 500.20)
+
+# Synthetic NIST format=2 row: log(gf) is computed from lower g * f_ik.
+table_text = (
+    'obs_wl_air\tei(ev)\telement\tsp_num\tf_ik\tg_i\n'
+    '5000.0\t1.0\tFe\tI\t0.1\t2\n'
+)
+parsed = nist._parse_table(table_text, "Fe I")
+check(
+    "NIST parser retains log(gf)",
+    len(parsed) == 1 and len(parsed[0]) == 4 and abs(parsed[0][3] - np.log10(0.2)) < 1e-3,
+)
 
 feat = {"wl": phoenix.air_to_vacuum_nm(500.0), "width": 0.8}
 el, ep, info = phoenix.identify_feature(feat, [(500.0, "Fe I", 1.0)])
