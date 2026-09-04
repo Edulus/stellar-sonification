@@ -120,7 +120,7 @@ Note `_buildVoice` squeezes the ADSR when a note is shorter than attack+decay+re
 (SEED's eighth notes can be ~0.3 s). At the default 1.2 s tone nothing is clamped, so
 SEQ/CHORD/hover are bit-identical to before.
 
-## Chord mode (prototype)
+## Chord mode
 
 [stellar-sonification.jsx](stellar-sonification.jsx) now has a **chord harmonization
 mode** wired in (Phase 2.5 — see [docs/ROADMAP.md](docs/ROADMAP.md)). Alongside
