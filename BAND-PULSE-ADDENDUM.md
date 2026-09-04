@@ -37,12 +37,19 @@ the same instant, sharing an outer edge:
   `BAND_THICKNESS * (0.55 + 0.45 * (1 - rank / (n - 1)))` for rank 0..n-1, EW descending
 
 Under `lighter` these blend into a single band whose colour is the chord's colour, with
-the strongest line reaching deepest toward the star. That is the intent — highest EW
-reads as the thickest, most present colour in the band.
+the strongest line reaching deepest toward the star. Highest EW reads as the thickest,
+most present colour in the band.
 
-**Flag for review:** this is a call, not a given. The alternative is one band per pulse
-carrying only the root line's colour. Build the per-line version; if it reads muddy
-across the six prototype stars, say so and we will switch.
+### Visual validation result
+
+The per-line chord blend was accepted after a manual pass across all six prototype
+stars. It retained recognisable star-specific colour, including the Betelgeuse/Sirius
+extremes, without washing to white. Keep the per-line blend; the root-colour-only
+fallback considered during implementation is retired.
+
+A six-second sustained chord hold also validated `BAND_PULSE_PERIOD = 0.6`: the pulse
+read as continuous water-ripple motion rather than a metronomic clock. Keep 0.6 s unless
+a future visual redesign deliberately reopens tuning.
 
 ## Force-fade on release
 
@@ -66,6 +73,9 @@ On `starStopped`, drop any bands still held for that star.
 - A chord released mid-pulse fades its in-flight bands out; none of them snap off.
 - Sequence mode is unchanged from the base brief.
 - Evicting the oldest star under the 3-star limit behaves as it does today.
+
+The deployed visual pass accepted all five checks above, including shallow Vega Fe I
+visibility and equivalence between normal release and oldest-star eviction.
 
 ## Out of scope
 
