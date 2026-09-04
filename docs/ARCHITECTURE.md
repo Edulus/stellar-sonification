@@ -6,18 +6,19 @@
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │  Browser                                                                     │
 │                                                                              │
-│  ┌─────────────────────┐    star ID     ┌──────────────────┐                 │
+│  ┌─────────────────────┐    star data   ┌──────────────────┐                 │
 │  │  Stellarium Web      │──────────────▶│  StarDataResolver │                 │
 │  │  Engine (WASM/WebGL) │               │                  │                 │
-│  │                      │               │  1. bright-stars  │                 │
-│  │  - Star catalog      │               │  2. survey match  │                 │
-│  │  - Sky rendering     │               │  3. template      │                 │
-│  │  - User interaction  │               └────────┬─────────┘                 │
-│  │  - Time/location     │                        │                           │
-│  └──────────┬───────────┘                        │ line list                 │
-│             │                                    ▼                           │
-│             │ hover/select        ┌──────────────────────────┐               │
-│             │ events              │  SonificationEngine       │               │
+│  │                      │               │  1. curated name  │                 │
+│  │  - Star catalog      │               │     / alias       │                 │
+│  │  - Sky rendering     │               │  2. spectral type│                 │
+│  │  - User interaction  │               │  3. B-V template │                 │
+│  │  - Time/location     │               │  4. default tpl   │                 │
+│  └──────────┬───────────┘               └────────┬─────────┘                 │
+│             │                                    │ line list                 │
+│             │ hover/select                       ▼                           │
+│             │ events              ┌──────────────────────────┐               │
+│             │                     │  SonificationEngine       │               │
 │             │                     │                          │               │
 │             │                     │  oscillator bank         │               │
 │             │                     │    └─▶ biquad filter     │               │
@@ -31,15 +32,17 @@
 │  │  ┌─────────────────┐ │                                                    │
 │  │  │ SkyCanvas        │ │  ◄── Stellarium engine mounts here                │
 │  │  ├─────────────────┤ │                                                    │
-│  │  │ SpectrumPanel    │ │  ◄── Canvas 2D absorption spectrum visualization  │
+│  │  │ SpectrumPanel    │ │  ◄── selected star + spectrum + playback UI       │
 │  │  ├─────────────────┤ │                                                    │
-│  │  │ StarInfoPanel    │ │  ◄── Selected star metadata                       │
+│  │  │ SynthPanel       │ │  ◄── live sonification parameter controls         │
 │  │  ├─────────────────┤ │                                                    │
-│  │  │ ParamMapping     │ │  ◄── Real-time sonification parameter readout     │
+│  │  │ ObjectTooltip    │ │  ◄── hover identity / sky-object metadata         │
 │  │  └─────────────────┘ │                                                    │
 │  └───────────────────────┘                                                    │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+The resolver's runtime inputs are generated data modules. `data-pipeline/output/bright-stars.json` and `data-pipeline/output/spectral-templates.json` are imported by thin adapters in `src/data/`, then consumed synchronously by `StarDataResolver` in the browser.
 
 ## Layer Details
 
@@ -115,51 +118,55 @@ The richer catalog pipeline can carry cross-identifiers, but the bundled catalog
 
 ### 2. Star Data Resolver (Data Layer)
 
-**Purpose**: Given a star identifier from the engine, return an absorption line list suitable for sonification.
+**Purpose**: Given the normalized star object emitted by `StellariumBridge`, return the spectral data object that the spectrum UI and `SonificationEngine` consume.
 
-**Interface**:
+The running application has two spectral data sources:
 
-```typescript
-interface AbsorptionLine {
-  wl: number;       // Wavelength in nm (e.g. 656.3 for Hα)
-  depth: number;    // Absorption depth, 0–1
-  width: number;    // Line width in Å
-  profile: 'gaussian' | 'lorentzian' | 'voigt';
-  ew: number;       // Equivalent width in mÅ
-  el: string;       // Element identification (e.g. "Ca II K", "Hα", "TiO γ")
-  ep: number;       // Excitation potential in eV
+1. **Curated bright stars.** `data-pipeline/output/bright-stars.json` is the canonical generated JSON. `src/data/bright-stars.js` imports it, exports an iterable `BRIGHT_STARS` array plus keyed access, and `StarDataResolver` builds a normalized name/alias `Map` from that array.
+2. **Synthetic templates.** `data-pipeline/output/spectral-templates.json` is the canonical generated JSON. `src/data/spectral-templates.js` imports it, attaches a display color derived from temperature, and exposes `templateForType`, `templateForBV`, and `defaultTemplate`.
+
+There is **no survey tier in the current runtime resolver**. Survey extraction/cross-match work is future data-pipeline work. The resolver currently returns only `dataSource: 'curated'` or `dataSource: 'template'`.
+
+**Runtime interface**:
+
+```javascript
+class StarDataResolver {
+  constructor(catalog = BRIGHT_STARS)
+
+  resolve(selected) // synchronous
 }
 
-interface StarSpectralData {
-  name: string;
-  type: string;     // Spectral classification (e.g. "G2V")
-  temp: number;     // Effective temperature in K
-  rv: number;       // Radial velocity in km/s
-  color: string;    // Display color hex
-  lines: AbsorptionLine[];
-  dataSource: 'curated' | 'survey' | 'template';  // Provenance tracking
-}
-
-// Core resolver function
-async function resolveStarData(starId: StarIdentifier): Promise<StarSpectralData>
+// selected may provide:
+// { name, designations, spectralType, bv, hip, ... }
+// resolve() returns a StarSpectralData object with:
+// { name, type, temp, rv, color, lines, dataSource }
 ```
 
-**Resolution cascade**:
+**Current resolution cascade**:
 
 ```
-resolveStarData(starId)
+StarDataResolver.resolve(selected)
   │
-  ├─▶ Try bright-stars.json (keyed by HIP number)
-  │   Found? Return curated line list.
+  ├─▶ Normalize selected.name + selected.designations
+  │   and look them up in the curated name/alias Map
+  │   HIT → return curated star data (`dataSource: 'curated'`)
   │
-  ├─▶ Try survey cross-match (keyed by HD or Gaia ID)
-  │   Found? Return extracted line list.
+  ├─▶ templateForType(selected.spectralType)
+  │   HIT → return that synthetic template
   │
-  └─▶ Fall back to spectral-templates.json
-      Parse spectral type string → base type + luminosity class
-      Return canonical template line list for that class.
-      Use engine-provided Teff for blackbody, default RV=0.
+  ├─▶ templateForBV(selected.bv)
+  │   HIT → return the canonical template for that B-V range
+  │
+  └─▶ defaultTemplate()
+      Always returns the default synthetic template
+      (`dataSource: 'template'`, rv = 0)
 ```
+
+This means every selectable star gets a line list even when the bundled engine catalog supplies no spectral type. For the six curated validation stars, name/alias matching wins before any template lookup. For other stars, spectral type wins when present, then B-V, then the default.
+
+**How `spectral-templates.json` reaches the app.** The pipeline writes `data-pipeline/output/spectral-templates.json`. `src/data/spectral-templates.js` imports that JSON at module load and turns it into the in-memory `SPECTRAL_TEMPLATES` table. `StarDataResolver` calls the adapter's lookup functions when no curated name/alias matched. `App.jsx` owns one resolver instance and calls `resolver.resolve(star)` on selection and hover; the returned object becomes `SpectrumPanel` data and is passed unchanged into the selected `SonificationEngine` playback method.
+
+Therefore, a regenerated `spectral-templates.json` reaches runtime through the existing adapter without hand-editing `src/data/*.js`. A newly generated exact template key can be selected by `templateForType()` when the selected star carries that exact spectral type; otherwise the adapter's current class/luminosity fallback or B-V/default fallback decides which template is used.
 
 **Data file formats**:
 
@@ -195,11 +202,13 @@ resolveStarData(starId)
 }
 ```
 
-**Template matching logic**: Spectral type strings from the engine can be messy ("G2V", "G2 V", "G2/3V", "G2Ve", etc.). The matcher should:
-1. Extract base letter + subclass number + luminosity class
-2. Find exact match in templates
-3. If no exact match, find nearest (e.g. G3V falls back to G2V)
-4. If no subclass match, use the base type (e.g. G → G2V as the canonical G)
+**Template matching logic today**:
+1. Parse the selected spectral-type string into base class, subtype, and luminosity class.
+2. If the raw spectral-type string exactly matches a key in `SPECTRAL_TEMPLATES`, use that exact template.
+3. Otherwise choose the class fallback from the adapter's dwarf or giant lookup table.
+4. If spectral type is unavailable/unparseable, the resolver falls through to B-V and then the default template.
+
+The current adapter does not interpolate numerically between neighboring spectral subtypes. Expanding the generated template grid therefore increases exact-match coverage, while the existing fallback behavior remains the safety net.
 
 ### 3. Sonification Engine (Audio Layer)
 
@@ -314,13 +323,17 @@ interface AppState {
 
 **Component responsibilities**:
 
-- `App.jsx`: Root layout, state management, coordinates engine↔data↔audio
-- `SkyCanvas.jsx`: Mounts Stellarium engine, forwards selection events up
-- `SpectrumPanel.jsx`: Canvas 2D rendering of absorption spectrum (ported from prototype's `SpectrumCanvas`)
-- `StarInfoPanel.jsx`: Displays star name, type, temperature, metadata, data source indicator
-- `ParamMappingPanel.jsx`: Real-time readout of sonification parameters (ported from prototype's `ParamBar` components)
+- `App.jsx`: Root layout/state; owns one `StarDataResolver` and one `SonificationEngine`, resolves selection/hover data, and coordinates playback/UI state
+- `SkyCanvas.jsx`: Mounts Stellarium engine and forwards normalized selection/hover events from the bridge
+- `SpectrumPanel.jsx`: Displays selected-star identity/data-source, renders the absorption spectrum, exposes SEQ/CHORD/SEED controls, and lets users inspect/click individual lines
+- `SynthPanel.jsx`: Live controls for sonification mapping parameters
+- `ObjectTooltip.jsx`: Type-agnostic metadata for the currently hovered sky object
+- `LocationPicker.jsx`, `GroundToggle.jsx`, `TimeControl.jsx`: Observer/sky controls
+- `RingOverlay.jsx`: Audio-derived ripple-band visualization over the engine canvas
 
-**Layout**: The sky canvas fills the viewport. Panels overlay as collapsible drawers or slide-outs, not competing with the sky for screen real estate. The spectrum panel appears when a star is selected. Clicking empty sky dismisses it.
+There is no dedicated `StarInfoPanel.jsx` or `ParamMappingPanel.jsx` in the current app. Their originally planned responsibilities are partly covered by `SpectrumPanel`, `ObjectTooltip`, and `SynthPanel`.
+
+**Layout**: The sky canvas fills the viewport. Panels and HUD controls overlay it. `SpectrumPanel` appears when a star is selected and can be dismissed; selection itself remains silent until the user presses ▶.
 
 ## Data Flow (Click → Sound)
 
@@ -331,28 +344,30 @@ interface AppState {
       │
 3. StellariumBridge normalizes the selected SweObj and emits `starSelected`; SkyCanvas forwards it to App.jsx
       │
-4. App.jsx dispatches to StarDataResolver.resolve(starId)
+4. App.jsx calls its persistent StarDataResolver.resolve(star)
       │
-5. Resolver checks bright-stars.json by HIP number
-      │  ├── HIT: returns curated StarSpectralData
-      │  └── MISS: checks survey cross-match by HD/Gaia
-      │       ├── HIT: returns survey-extracted StarSpectralData
-      │       └── MISS: parses spType, returns template StarSpectralData
+5. Resolver normalizes star.name + designations and checks the curated name/alias Map
+      │  ├── HIT: return curated data from bright-stars.json
+      │  └── MISS: templateForType(star.spectralType)
+      │       ├── HIT: return that template from spectral-templates.json
+      │       └── MISS: templateForBV(star.bv)
+      │            ├── HIT: return the B-V-selected template
+      │            └── MISS: return defaultTemplate()
       │
-6. App.jsx receives StarSpectralData, updates state
+6. App.jsx stores the returned StarSpectralData in state
       │
-7. SpectrumPanel renders absorption spectrum on canvas; selection itself stays silent
+7. SpectrumPanel renders that data; selection itself stays silent
       │
-8. User presses ▶; App.jsx dispatches by mode:
+8. User presses ▶; App.jsx dispatches the same resolved object by mode:
       │    CHORD → SonificationEngine.playChord(data)
       │    SEED  → SonificationEngine.playSeed(data, opts)
       │    SEQ   → SonificationEngine.playSequence(data)
       │  A spectrum-line click instead calls playLine(line, rv)
       │
 9. Web Audio graph builds: oscillators → filter → ADSR → dry/reverb → speakers
-      │
-10. ParamMappingPanel displays real-time parameter values
 ```
+
+Hover audio uses the same resolver: `App.jsx` resolves the hovered star, then passes that returned object to `startHoverChord` or `startHoverSequence`.
 
 ## Integration Patterns
 
@@ -458,7 +473,8 @@ npm run preview      # Preview production build
 ## Performance Considerations
 
 - **Engine rendering**: Stellarium Web Engine handles its own render loop. Don't interfere with its requestAnimationFrame cycle.
-- **Star data lookup**: The bright-stars JSON should be loaded at startup and held in memory as a Map keyed by HIP number. Template lookup is a small object. No async penalty on the click path after initial load.
+- **Spectral data loading**: `bright-stars.json` and `spectral-templates.json` are statically imported by their `src/data/*.js` adapters and bundled by Vite. The app does not fetch either JSON on each selection.
+- **Resolver lookup**: `StarDataResolver` builds its curated normalized name/alias `Map` once in the resolver constructor. Template tables are module-level objects. A selection performs synchronous in-memory lookups only.
+- **Future data growth**: the current generated datasets are small starter sets. PHOENIX/template expansion will increase bundle size and lookup-table size, so measure the generated output after expansion rather than relying on the old hypothetical 500-star / 70-template size estimates.
 - **Audio latency**: AudioContext should be pre-initialized (on first user gesture). Building the oscillator graph on click takes <2ms. Perceived latency should be under 20ms from click to sound.
 - **Memory**: Each tone creates ~4 oscillators + filters + gain nodes. These are garbage-collected after the tone ends (stop + disconnect). No long-lived audio nodes.
-- **Data bundle size**: bright-stars.json for ~500 stars with 6–10 lines each ≈ 50–80 KB gzipped. Templates for ~70 spectral subtypes ≈ 15 KB. Negligible.
