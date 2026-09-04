@@ -13,7 +13,8 @@
     "verify:seed": "node scripts/verify-seed.mjs",
     "verify:sky": "node scripts/verify-sky.mjs",
     "verify:slice": "node scripts/verify-slice.mjs",
-    "verify:tooltip": "node scripts/verify-tooltip.mjs"
+    "verify:tooltip": "node scripts/verify-tooltip.mjs",
+    "verify:phoenix": "python data-pipeline/verify_phoenix.py"
   },
   "dependencies": {
     "react": "^18.3.1",
