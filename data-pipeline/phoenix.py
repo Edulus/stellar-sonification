@@ -229,13 +229,19 @@ def assign_profile(wl_nm, el, teff):
     return "gaussian"
 
 
-def _spacing_select(lines, keep=MAX_LINES):
+def _spacing_select(lines, keep=MAX_LINES, diagnostics=None):
     out = []
     for line in sorted(lines, key=lambda x: x["ew"], reverse=True):
-        if all(abs(line["wl"] - x["wl"]) >= MIN_SPACING_NM for x in out):
-            out.append(line)
-            if len(out) >= keep:
-                break
+        conflict = next((x for x in out if abs(line["wl"] - x["wl"]) < MIN_SPACING_NM), None)
+        if conflict is not None:
+            if diagnostics is not None:
+                diagnostics.append({**line, "reason": "pitch-spacing", "kept_wl": conflict["wl"], "candidates": []})
+            continue
+        if len(out) >= keep:
+            if diagnostics is not None:
+                diagnostics.append({**line, "reason": "ew-cap", "candidates": []})
+            continue
+        out.append(line)
     return out
 
 
@@ -251,7 +257,7 @@ def extract_atomic_lines(wave_a, flux, teff, nist_table, window_a, diagnostics=N
                 diagnostics.append({**feat, **info})
             continue
         identified.append({**feat, "profile": assign_profile(feat["wl"], el, teff), "el": el, "ep": ep})
-    return _spacing_select(identified)
+    return _spacing_select(identified, diagnostics=diagnostics)
 
 
 def extract_molecular_bands(wave_a, flux, teff, window_a=120.0):
@@ -297,7 +303,7 @@ def extract_template(model_path, wave_path, teff, nist_table, window_a, diagnost
     wave_a, flux = read_hires(model_path, wave_path)
     lines = extract_atomic_lines(wave_a, flux, teff, nist_table, window_a, diagnostics)
     lines += extract_molecular_bands(wave_a, flux, teff)
-    return [_round_line(x) for x in _spacing_select(lines)]
+    return [_round_line(x) for x in _spacing_select(lines, diagnostics=diagnostics)]
 
 
 def _distribution_score(lines, curated_lines):
