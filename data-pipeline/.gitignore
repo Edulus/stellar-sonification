@@ -4,5 +4,8 @@ downloads/
 # NIST cache is reproducible from the network; keep it out of the repo.
 nist_lines.tsv
 
+# PHOENIX extraction diagnostics are run-specific and may be large.
+phoenix-diagnostics.json
+
 # The output JSON (< 1 MB each) IS committed — it is the source of truth the app
 # imports. So output/ is intentionally NOT ignored.
