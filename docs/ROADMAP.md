@@ -112,7 +112,7 @@ Clicking any star in the sky populates `StarInfoPanel` with correct metadata and
   - `ensureContext()` — lazily create/resume AudioContext from a user gesture
   - `playLine(line, starRV = 0)` — build oscillator bank, filter, ADSR, reverb
   - `playSequence(data, opts = {})` — sort lines by EW desc and play sequentially
-  - `playChord(data, amount = params.harmonizeAmount)` — harmonize and play all lines together
+  - `playChord(data, amount = this.params.harmonizeAmount)` — harmonize and play all lines together
   - `playSeed(data, opts = {})` — render the deterministic seeded arrangement
   - `stop()` — stop active click/sequence/chord/SEED playback
   - `getParams(line, starRV = 0)` — return computed params for UI display (no audio)
