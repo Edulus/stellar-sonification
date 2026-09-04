@@ -1,34 +1,30 @@
 import { useEffect, useRef } from "react";
 import { wlToRGB } from "../audio/color.js";
 
-// Star ring animation overlay. A transparent canvas over the engine canvas that
-// draws color rings emanating from a singing star — one ring per absorption line,
-// colored by that line's wavelength. It is a *pure visual function of audio
-// state*: it owns no lifecycle timing. The SonificationEngine emits
+// Star band animation overlay. A transparent canvas over the engine canvas that
+// draws colored ripple bands emanating from a singing star — one band per
+// absorption line, colored by that line's wavelength. It is a *pure visual
+// function of audio state*: the SonificationEngine emits
 //   starChordStart / starLineStart / starFadeStart / starStopped
-// and the overlay only reacts. If a sound rings, its ring shows; when the sound
-// fades (over fadeDurationSec), the ring fades the same; when it stops, the ring
-// is removed. Never touches the engine's WebGL context, and never intercepts
-// mouse events (pointer-events: none).
+// and the overlay only reacts. Sequence tones emit once; sustained chords pulse
+// while held. When audio fades, every in-flight band force-fades on that same
+// release curve; when it stops, the star's bands are removed. Never touches the
+// engine's WebGL context, and never intercepts mouse events (pointer-events:none).
 
-// Visual tuning (px / px-per-sec). Radial ordering (EW-strongest innermost) is
-// preserved at every instant because drift is identical across a chord's rings.
 const BASE_RADIUS = 14;
-const RING_SPACING = 9;
-const STROKE = 2;
-const CHORD_DRIFT = 6;       // slow outward drift, px/sec
-const CHORD_OPACITY = 0.9;
-const SEQ_EXPAND = 46;       // how far a sequence ring travels over its tone, px
-const SEQ_OPACITY = 0.95;
-const SPAWN_FLASH = 0.2;     // sec: opacity ramp-in (the "emanating" pop)
+const BAND_SPEED = 200;       // px/s — leading edge travel
+const BAND_STRETCH = 130;     // px/s — thickening as it travels
+const BAND_THICKNESS = 16;    // px   — thickness at birth
+const BAND_FADE = 1.5;        // exponent on the overall fade
+const BAND_PULSE_PERIOD = 0.6; // s — spacing between bands while a chord is held
 
 export default function RingOverlay({ engine }) {
   const canvasRef = useRef(null);
-  const systemsRef = useRef(new Map()); // starKey -> ring system
+  const systemsRef = useRef(new Map()); // starKey -> band system
   const rafRef = useRef(null);
   const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
 
-  // Size the backing store to match the engine canvas (CSS size × dpr) so rings
+  // Size the backing store to match the engine canvas (CSS size × dpr) so bands
   // land on the star at any devicePixelRatio. Draw space stays in CSS px.
   const resize = () => {
     const canvas = canvasRef.current;
@@ -49,43 +45,72 @@ export default function RingOverlay({ engine }) {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Subscribe to the audio layer's ring events.
+  // Subscribe to the audio layer's overlay events.
   useEffect(() => {
     if (!engine) return;
-    const now = () => performance.now() / 1000;
+    const now = () => performance.now();
 
     const ensureRaf = () => {
       if (rafRef.current == null) rafRef.current = requestAnimationFrame(draw);
     };
 
+    const makeBand = (line, born, life, birthThickness = null) => {
+      const band = {
+        born,
+        life,
+        rgb: wlToRGB(line.wl),
+        peak: 0.35 + line.depth * 0.55,
+      };
+      if (birthThickness != null) band.birthThickness = birthThickness;
+      return band;
+    };
+
+    const emitChordPulse = (sys, born) => {
+      const n = sys.lines.length;
+      sys.lines.forEach((line, rank) => {
+        const rankFrac = n <= 1 ? 0 : rank / (n - 1);
+        const birthThickness = BAND_THICKNESS * (0.55 + 0.45 * (1 - rankFrac));
+        sys.bands.push(makeBand(line, born, sys.life, birthThickness));
+      });
+      sys.lastPulseT = born;
+    };
+
     const onChordStart = ({ starKey, screenPos, lines }) => {
       if (!screenPos) return;
-      systemsRef.current.set(starKey, {
+      const born = now();
+      const sys = {
         mode: "chord",
         pos: screenPos,
-        colors: (lines || []).map((l) => wlToRGB(l.wl)), // EW-desc as received
-        startT: now(),
+        lines: lines || [], // EW-desc as received
+        life: engine.params.toneDuration,
+        bands: [],
+        lastPulseT: born,
         fadeStartT: null,
         fadeDur: 0,
-      });
+      };
+      systemsRef.current.set(starKey, sys);
+      emitChordPulse(sys, born); // first pulse is at chord onset
       ensureRaf();
     };
 
     const onLineStart = ({ starKey, line, durationSec, screenPos }) => {
       let sys = systemsRef.current.get(starKey);
       if (!sys) {
-        sys = { mode: "sequence", pos: screenPos, rings: [], fadeStartT: null, fadeDur: 0 };
+        sys = { mode: "sequence", pos: screenPos, bands: [], fadeStartT: null, fadeDur: 0 };
         systemsRef.current.set(starKey, sys);
       }
       if (screenPos) sys.pos = screenPos;
-      if (sys.fadeStartT != null) return; // fading: no new rings
-      sys.rings.push({ color: wlToRGB(line.wl), startT: now(), durationSec: durationSec || 1 });
+      if (sys.fadeStartT != null) return; // fading: no new bands
+      sys.bands.push(makeBand(line, now(), durationSec));
       ensureRaf();
     };
 
     const onFadeStart = ({ starKey, fadeDurationSec }) => {
       const sys = systemsRef.current.get(starKey);
       if (!sys) return;
+      // This same event covers ordinary hover release and force-fade-oldest.
+      // Chord pulse spawning stops immediately because draw() only pulses while
+      // fadeStartT is null; every visible band then follows this audio fade.
       sys.fadeStartT = now();
       sys.fadeDur = fadeDurationSec || 0.001;
     };
@@ -111,46 +136,65 @@ export default function RingOverlay({ engine }) {
       ctx.clearRect(0, 0, w, h);
 
       const t = now();
+      ctx.globalCompositeOperation = "lighter";
 
       systems.forEach((sys) => {
-        // Fade factor (1 while sustained → 0 across fadeDur). Pure audio-derived.
-        const fadeK = sys.fadeStartT == null
-          ? 1
-          : Math.max(0, 1 - (t - sys.fadeStartT) / sys.fadeDur);
+        // A sustained chord sheds another pulse only while audio is held. The
+        // next pulse is timed from the previous actual emission, so a throttled
+        // frame never causes a catch-up burst of wall-clock pulses.
+        if (
+          sys.mode === "chord" &&
+          sys.fadeStartT == null &&
+          (t - sys.lastPulseT) / 1000 >= BAND_PULSE_PERIOD
+        ) {
+          emitChordPulse(sys, t);
+        }
 
-        if (sys.mode === "chord") {
-          const drift = CHORD_DRIFT * (t - sys.startT);
-          const spawn = Math.min((t - sys.startT) / SPAWN_FLASH, 1);
-          sys.colors.forEach(([r, g, b], i) => {
-            const radius = BASE_RADIUS + i * RING_SPACING + drift; // monotonic in i
-            const alpha = CHORD_OPACITY * spawn * fadeK;
-            if (alpha <= 0.001) return;
-            ctx.beginPath();
-            ctx.arc(sys.pos.x, sys.pos.y, radius, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
-            ctx.lineWidth = STROKE;
-            ctx.stroke();
-          });
-        } else {
-          // sequence: each ring expands and fades over its tone, accumulating.
-          for (let k = sys.rings.length - 1; k >= 0; k -= 1) {
-            const ring = sys.rings[k];
-            const progress = (t - ring.startT) / ring.durationSec;
-            if (progress >= 1) { sys.rings.splice(k, 1); continue; }
-            const radius = BASE_RADIUS + progress * SEQ_EXPAND;
-            // quick attack then linear fade through the tone's release
-            const env = (progress < 0.15 ? progress / 0.15 : 1) * (1 - progress);
-            const [r, g, b] = ring.color;
-            const alpha = SEQ_OPACITY * env * fadeK;
-            if (alpha <= 0.001) continue;
-            ctx.beginPath();
-            ctx.arc(sys.pos.x, sys.pos.y, radius, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
-            ctx.lineWidth = STROKE;
-            ctx.stroke();
+        for (let k = sys.bands.length - 1; k >= 0; k -= 1) {
+          const band = sys.bands[k];
+          const age = (t - band.born) / 1000;
+          const u = age / band.life;
+
+          let alpha;
+          if (sys.fadeStartT != null) {
+            // Force-fade overrides natural life: hold the alpha the band had at
+            // release, then take exactly the audio release duration to reach 0.
+            const fadeAge = (t - sys.fadeStartT) / 1000;
+            if (fadeAge >= sys.fadeDur) continue;
+            const releaseAge = Math.max(0, (sys.fadeStartT - band.born) / 1000);
+            const releaseU = Math.min(1, releaseAge / band.life);
+            const releaseAlpha = Math.pow(1 - releaseU, BAND_FADE) * band.peak;
+            alpha = releaseAlpha * Math.max(0, 1 - fadeAge / sys.fadeDur);
+          } else {
+            if (u >= 1) { sys.bands.splice(k, 1); continue; }
+            alpha = Math.pow(1 - u, BAND_FADE) * band.peak;
           }
+
+          const outer = BASE_RADIUS + BAND_SPEED * age;
+          const birthThickness = band.birthThickness ?? BAND_THICKNESS;
+          const inner = Math.max(0, outer - (birthThickness + BAND_STRETCH * age));
+          if (alpha <= 0.002 || outer <= 0) continue;
+
+          const [r, g, b] = band.rgb;
+          const innerStop = Math.min(0.999, inner / outer);
+          const grad = ctx.createRadialGradient(sys.pos.x, sys.pos.y, 0, sys.pos.x, sys.pos.y, outer);
+          grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+          grad.addColorStop(innerStop, `rgba(${r},${g},${b},0)`);
+          grad.addColorStop(
+            Math.min(0.999, innerStop + (1 - innerStop) * 0.55),
+            `rgba(${r},${g},${b},${alpha * 0.35})`
+          );
+          grad.addColorStop(0.985, `rgba(${r},${g},${b},${alpha})`);
+          grad.addColorStop(1, `rgba(${r},${g},${b},${alpha * 0.45})`);
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(sys.pos.x, sys.pos.y, outer, 0, Math.PI * 2);
+          ctx.fill();
         }
       });
+
+      ctx.globalCompositeOperation = "source-over";
 
       // Idle-aware: stop the loop when nothing is alive (no permanent per-frame cost).
       if (systems.size === 0) {
@@ -160,8 +204,7 @@ export default function RingOverlay({ engine }) {
       }
     }
 
-    // Debug hook (mirrors window.__engine / __bridge): lets tooling confirm the
-    // overlay's rAF is idle when nothing is ringing.
+    // Debug hook name stays stable for existing tooling even though rings are now bands.
     window.__ringOverlay = {
       isAnimating: () => rafRef.current != null,
       count: () => systemsRef.current.size,
