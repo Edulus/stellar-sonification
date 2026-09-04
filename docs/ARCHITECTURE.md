@@ -47,7 +47,7 @@
 
 **What it is**: A C codebase compiled to WebAssembly via Emscripten. Renders a full planetarium sky in WebGL with star catalogs, constellations, atmosphere, and landscape simulation.
 
-**How we embed it**: The engine exposes a JavaScript API through Emscripten bindings. It renders into a `<canvas>` element. The engine uses an **object-oriented attribute system** internally (documented in `doc/internals.md`): every entity inherits from `obj_t`, and properties are accessed via `obj_call(obj, "attribute_name", signature)`. From JavaScript, this surfaces as property access on wrapper objects.
+**How we embed it**: The engine exposes a JavaScript API through Emscripten bindings. It renders into a `<canvas>` element. The engine uses an **object-oriented attribute system** internally (documented in `doc/internals.md`): every entity inherits from `obj_t`, and properties are accessed via `obj_call(obj, "attribute_name", signature)`. From JavaScript, this surfaces through `SweObj` methods/properties and the global engine handle.
 
 **Engine object model** (from internals.md):
 ```
@@ -63,15 +63,10 @@
 +---------+   +------------+   +---------+   +------------+
 ```
 
-Sky objects (including stars) carry position attributes:
-- `pvg[2][3]` — equatorial J2000.0 geocentric position/velocity in AU
-- `ra`, `dec` — right ascension, declination
-- `az`, `alt` — azimuth, altitude
-- Attributes are readable from JS via the Emscripten bridge
+Sky objects carry position data internally, but selected-star coordinates are **not** exposed to JavaScript as direct `obj.ra` / `obj.dec` properties. The verified JS position surface is `obj.getInfo('radec')`, which returns an **ICRF Cartesian unit vector `[x,y,z]`**. Convert that vector with the engine's frame helpers and `stel.c2s(...)` when actual angular RA/Dec is needed.
 
 **Key JS integration points** — ✅ VERIFIED in Phase 0 (full detail + source
-references in [`../PHASE0-FINDINGS.md`](../PHASE0-FINDINGS.md)). The `pvg` /
-`obj_call` bullets above describe the *C* internals; the actual *JS* surface is:
+references in [`../PHASE0-FINDINGS.md`](../PHASE0-FINDINGS.md)):
 ```javascript
 // Bootstrap: the built engine .js defines a global factory.
 StelWebEngine({ wasmFile, canvas, onReady: (stel) => { ... } });
@@ -81,51 +76,41 @@ StelWebEngine({ wasmFile, canvas, onReady: (stel) => { ... } });
 // setting stel.core.selection = obj selects programmatically.)
 stel.change((obj, attr) => {
   if (attr === 'selection') { const sel = stel.core.selection; /* ... */ }
-  // NB: attr === 'hovered' fires constantly on mouse-move — ignore it.
+  // NB: attr === 'hovered' fires constantly on mouse-move — ignore it here.
 });
 
 // A selected star (a SweObj):
 obj.designations()                // METHOD → ["HIP 32349","HD 48915","NAME Sirius","GAIA …"]
 obj.getInfo('vmag')               // visual magnitude
 obj.getInfo('distance')           // distance
-obj.getInfo('radec')              // ICRF unit vector [x,y,z] (convert via stel.c2s)
-obj.jsonData.model_data.spect_t   // spectral type "A1V"  ← NOT obj.spect_t / getInfo
+obj.getInfo('radec')              // ICRF unit vector [x,y,z] (convert with frame helpers + stel.c2s)
+obj.jsonData.model_data.spect_t   // spectral type "A1V" when catalog data carries it
 obj.jsonData.model_data.BVMag     // B-V color
+obj.jsonData.model_data.plx       // parallax
 
 // Observer: stel.core.observer.longitude / .latitude (radians), settable.
 ```
-Corrections vs the original assumptions: selection is event-based not polled;
-`designations` is a method; spectral type lives in `jsonData.model_data`, not a
-property; magnitude is `getInfo('vmag')`. See PHASE0-FINDINGS.md §2–§3, §7.
+HIP/HD/Gaia identifiers are parsed from `designations()` strings; there are no
+`obj.hip` / `obj.hd` properties. Spectral type lives in `jsonData.model_data`,
+not `obj.spect_t`, and magnitude is `getInfo('vmag')`. See
+PHASE0-FINDINGS.md §2–§3, §7–§8.
 
-**Engine build**: ⚠️ The `make js` recipe below is the upstream instruction and
-does **not** work on a Windows path with spaces (SCons emits MSVC-style flags and
-the pinned `emcc` path breaks `cmd.exe`). Use the verified procedure in
-[`BUILD.md`](BUILD.md) instead, which pins **Emscripten 1.39.17** and drives
-`emcc` directly via `stellarium-web-engine/build-direct.sh`. Original upstream
-recipe (for reference only):
-```bash
-source $PATH_TO_EMSDK/emsdk_env.sh
-make js
-# Outputs: stellarium-web-engine.js + stellarium-web-engine.wasm
-```
+**Engine build**: use the verified procedure in [`BUILD.md`](BUILD.md) / [`../PHASE0-FINDINGS.md`](../PHASE0-FINDINGS.md) §6. It pins **Emscripten 1.39.17** and runs `stellarium-web-engine/build-direct.sh`, which drives `emcc` directly. The upstream SCons / `make js` path was tested and is unusable for this project on the native Windows path.
 
-**Star catalog pipeline**: The `Stellarium/stellarium_star_catalogs` repo (forked from henrysky) generates the engine's star catalogs from Hipparcos + Gaia DR3 data. Key details:
+**Star catalog pipeline**: The `Stellarium/stellarium_star_catalogs` repo (forked from henrysky) generates richer engine star catalogs from Hipparcos + Gaia DR3 data. Key details:
 - `simbad_query_hipsaohdhr.py` — queries SIMBAD for HIP/SAO/HD/HR cross-references
 - `Parse_HIP_Catalog.ipynb` — cleans HIP catalog, links to Gaia source IDs
 - `Gaia_Photometry.ipynb` — computes V-band magnitude and B-V color from Gaia DR3
 - Catalogs are hierarchical HiPS tiles (`Norder0..N`), **fetched at runtime** via
-  `core.stars.addDataSource({url})` — ✅ corrected in Phase 0; they are NOT baked
-  into the WASM (PHASE0-FINDINGS.md §1)
-- HIP numbers are the primary key; HD and Gaia source IDs are cross-matched via SIMBAD
-  — ⚠️ but the bundled `test-skydata` sample carries none of these (PHASE0-FINDINGS.md §9)
+  `core.stars.addDataSource({url})`; they are not baked into the WASM
+- The bundled `apps/test-skydata/` sample is deliberately thin: measured live, it gives stars either proper/Bayer/Flamsteed names **or** a HIP id, not both; it carries B-V for all sampled stars, no HD/Gaia ids, and no spectral types (PHASE0-FINDINGS.md §11-A)
 
-This means the engine already carries HIP→Gaia→HD cross-references internally. Our `StarDataResolver` can key on HIP number directly.
+The richer catalog pipeline can carry cross-identifiers, but the bundled catalog cannot support HIP-keyed lookup for the named bright stars. The current resolver therefore name/alias-matches curated bright stars and falls back through template data; richer catalog work remains a data-tier task.
 
 **Important constraints**:
 - The engine owns the WebGL context on its canvas. Do NOT render other WebGL content on the same canvas.
 - Engine updates run on requestAnimationFrame. Keep the main thread responsive.
-- Star catalog data is fetched at runtime from registered data sources (HiPS tiles), not baked into the WASM. Adding custom star metadata requires maintaining a parallel lookup (which is our approach — the spectral data lives outside the engine).
+- Star catalog and other skydata are served separately and registered at runtime with `addDataSource(...)`; the WASM contains the engine, not those catalogs.
 - The engine is AGPL-3.0 licensed. This affects distribution of any modified engine builds.
 
 ### 2. Star Data Resolver (Data Layer)
@@ -342,9 +327,9 @@ interface AppState {
 ```
 1. User clicks star in Stellarium canvas
       │
-2. Engine fires objectSelected event with {hip, hd, gaia, spType, ...}
+2. Engine changes `core.selection`; StellariumBridge receives `stel.change(..., 'selection')`
       │
-3. SkyCanvas.jsx receives event, calls handleStarSelected(starId)
+3. StellariumBridge normalizes the selected SweObj and emits `starSelected`; SkyCanvas forwards it to App.jsx
       │
 4. App.jsx dispatches to StarDataResolver.resolve(starId)
       │
@@ -373,163 +358,86 @@ interface AppState {
 
 ### Stellarium Bridge Pattern
 
-The engine bridge wraps Stellarium Web Engine's raw Emscripten API into a clean, React-friendly interface:
+`src/engine/StellariumBridge.js` dynamically loads the built engine glue as a classic script, then initializes the global factory and wires the engine's selection callback. The relevant pattern is:
 
 ```javascript
-// src/engine/StellariumBridge.js
-
-class StellariumBridge {
-  constructor(canvas) {
-    this.canvas = canvas;
-    this.stel = null;          // Engine core object
-    this.listeners = new Map();
-    this._lastSelection = null;
+const StelWebEngine = await loadEngineScript(config.jsFile);
+const stel = await new Promise((resolve, reject) => {
+  try {
+    StelWebEngine({
+      wasmFile: config.wasmFile,
+      canvas: this.canvas,
+      translateFn: (domain, str) => str,
+      onReady: (s) => resolve(s),
+    });
+  } catch (e) {
+    reject(e);
   }
+});
 
-  async init(config) {
-    // Load WASM, initialize engine
-    // The engine uses an obj_t hierarchy with attribute access
-    // core_t is the root, observer_t holds location/time
-    this.stel = await StelWebEngine.create(this.canvas, config);
+this.stel = stel;
+this._registerDataSources(config);
+this._registerFonts(config);
+this._wireSelection();
 
-    // Poll for selection changes (engine uses attribute model, not events)
-    // The Vue app uses a watcher pattern on stel.core.selection
-    this._pollSelection();
-  }
-
-  // The engine exposes selection as an attribute, not an event.
-  // We poll or watch for changes and emit our own events.
-  _pollSelection() {
-    const check = () => {
-      const sel = this.stel?.core?.selection;
-      if (sel !== this._lastSelection) {
-        this._lastSelection = sel;
-        if (sel) {
-          const starId = this.extractStarId(sel);
-          if (starId) this.emit('starSelected', starId);
-        } else {
-          this.emit('starDeselected');
-        }
-      }
-      requestAnimationFrame(check);
-    };
-    check();
-  }
-
-  // Extract usable identifiers from the engine's sky object
-  // The obj_t attribute system exposes designations, magnitude, etc.
-  // Exact property names need verification in Phase 0
-  extractStarId(obj) {
-    // obj.designations may be an array like ["HIP 32349", "HD 48915", ...]
-    // obj.v or obj.vmag — visual magnitude
-    // obj.spect_t — spectral type string
-    // obj.radec — [ra, dec] in radians
-
-    const designations = obj.designations || [];
-    const hip = this._parseDesignation(designations, 'HIP');
-    const hd = this._parseDesignation(designations, 'HD');
-
-    if (!hip && !hd) return null; // Not a cataloged star
-
-    return {
-      hip,
-      hd,
-      name: obj.name || `HIP ${hip}`,
-      spectralType: obj.spect_t || 'unknown',
-      magnitude: obj.vmag ?? obj.v ?? null,
-      ra: obj.ra,
-      dec: obj.dec,
-    };
-  }
-
-  _parseDesignation(designations, prefix) {
-    const match = designations.find(d => d.startsWith(prefix + ' '));
-    return match ? parseInt(match.split(' ')[1]) : null;
-  }
-
-  // Navigate to a specific star
-  pointAt(ra, dec, fov) { /* ... */ }
-
-  // Set observer location (attribute access: observer.longitude, observer.latitude)
-  setLocation(lat, lng) {
-    if (this.stel?.core?.observer) {
-      // Uses obj_call internally via Emscripten bindings
-      this.stel.core.observer.longitude = lng * Math.PI / 180;
-      this.stel.core.observer.latitude = lat * Math.PI / 180;
-    }
-  }
-
-  setTime(date) { /* ... */ }
-
-  on(event, callback) { /* ... */ }
-  off(event, callback) { /* ... */ }
-  emit(event, data) { /* ... */ }
-
-  destroy() {
-    this.stel?.destroy?.();
-  }
-}
+// Selection is an attribute plus a callback surface; no polling loop is needed.
+this.stel.change((obj, attr) => {
+  if (attr !== 'selection') return;
+  const selected = this.stel.core.selection;
+  if (selected) this.emit('starSelected', this.extractStarData(selected));
+  else this.emit('deselected');
+});
 ```
 
-### React Hook for Engine
+Selected-star extraction uses the verified `SweObj` API:
 
 ```javascript
-// src/engine/useStellariumEngine.js
+const designations = obj.designations();
+const model = obj.jsonData?.model_data ?? {};
+const radecICRF = obj.getInfo('radec'); // [x,y,z] ICRF unit vector, NOT [ra,dec]
 
-function useStellariumEngine(canvasRef, config) {
-  const bridgeRef = useRef(null);
-  const [ready, setReady] = useState(false);
+return {
+  hip: pickDesignation(designations, 'HIP'),
+  hd: pickDesignation(designations, 'HD'),
+  gaia: pickDesignation(designations, 'GAIA'),
+  name: pickName(designations),
+  designations,
+  spectralType: model.spect_t ?? null,
+  magnitude: obj.getInfo('vmag'),
+  bv: model.BVMag ?? null,
+  distanceAU: obj.getInfo('distance'),
+  radecICRF,
+};
+```
 
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    const bridge = new StellariumBridge(canvasRef.current);
-    bridge.init(config).then(() => {
-      bridgeRef.current = bridge;
-      setReady(true);
-    });
-    return () => bridge.destroy();
-  }, []);
+See `src/engine/StellariumBridge.js` and `PHASE0-FINDINGS.md` for the complete implementation and API notes.
 
-  const onStarSelected = useCallback((callback) => {
-    bridgeRef.current?.on('starSelected', callback);
-    return () => bridgeRef.current?.off('starSelected', callback);
-  }, [ready]);
+### React Integration
 
-  return { ready, bridge: bridgeRef.current, onStarSelected };
-}
+There is no `useStellariumEngine.js` hook in the implemented app. `src/ui/SkyCanvas.jsx` owns the React-side lifecycle: it creates one `StellariumBridge` for the bare canvas, subscribes to bridge events, calls `bridge.init()`, and destroys it on cleanup. The effect guards against StrictMode double-initialization.
+
+```javascript
+const bridge = new StellariumBridge(canvasRef.current);
+bridge.on('starSelected', (star) => onStarSelected?.(star));
+bridge.on('deselected', () => onDeselected?.());
+bridge.on('ready', () => onReady?.(bridge));
+bridge.init().catch(/* surface init error */);
 ```
 
 ## Build and Deployment
 
 ### Engine Build (one-time setup)
 
-```bash
-# Install Emscripten SDK
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk && ./emsdk install latest && ./emsdk activate latest
-source ./emsdk_env.sh
+The verified build is documented in [`BUILD.md`](BUILD.md) and [`../PHASE0-FINDINGS.md`](../PHASE0-FINDINGS.md) §6. In short:
 
-# Clone and build Stellarium Web Engine
-# Requires: Emscripten, SCons (pip install scons)
-git clone https://github.com/Stellarium/stellarium-web-engine.git
-cd stellarium-web-engine
-make js
-# This builds stellarium-web-engine.js and stellarium-web-engine.wasm
-# and copies them to html/static/js/
+- pin **Emscripten 1.39.17**;
+- use `stellarium-web-engine/build-direct.sh` rather than SCons / `make js`;
+- copy the resulting `stellarium-web-engine.{js,wasm}` into `public/engine/`;
+- serve fonts and `public/skydata/` separately. The bridge registers skydata sources at runtime with `addDataSource(...)`.
 
-# Verify build works with the included example
-# Open apps/simple-html/ in a browser
+**Note on the engine repo**: `Stellarium/stellarium-web-engine` is AGPL-3.0 licensed. The `apps/web-frontend/` directory contains a Vue-based frontend that serves as the reference implementation for JS API usage. The `doc/internals.md` documents the C-level object model and attribute system surfaced through Emscripten.
 
-# Copy outputs to our project
-cp html/static/js/stellarium-web-engine.js ../public/engine/
-cp html/static/js/stellarium-web-engine.wasm ../public/engine/
-# Data assets (star catalogs, textures) are baked into the WASM binary
-# Additional data may need to be served separately — check apps/simple-html/
-```
-
-**Note on the engine repo**: `Stellarium/stellarium-web-engine` is actively maintained (commits through 2026, 3,474 total commits). It is AGPL-3.0 licensed. The `apps/web-frontend/` directory contains a Vue-based frontend that serves as the reference implementation for JS API usage — study this before writing the bridge. The `doc/internals.md` documents the C-level object model and attribute system that surfaces through Emscripten to JS.
-
-**Related repo**: `Stellarium/stellarium_star_catalogs` contains Python notebooks for generating the star catalogs from Hipparcos + Gaia DR3 data, including HIP/HD/Gaia cross-matching via SIMBAD. This pipeline is directly useful for building our spectral data cross-reference.
+**Related repo**: `Stellarium/stellarium_star_catalogs` contains Python notebooks for generating richer star catalogs from Hipparcos + Gaia DR3 data, including HIP/HD/Gaia cross-matching via SIMBAD. This pipeline is directly useful for building our spectral data cross-reference.
 
 ### App Build
 
@@ -543,8 +451,8 @@ npm run preview      # Preview production build
 ### Vite Configuration Notes
 
 - WASM files must be served with correct MIME type (`application/wasm`)
-- The engine's `.js` glue code uses `importScripts` or dynamic `fetch` for the WASM binary — configure Vite to handle this correctly
-- Star data JSON files should be in `public/` for direct fetch, or imported as modules if small enough for bundling
+- The engine glue dynamically loads the WASM binary; the bridge passes its explicit `wasmFile` URL
+- Skydata is served separately from `public/skydata/` and registered at runtime
 - Canvas element for the engine must NOT be managed by React's virtual DOM after engine init — use a ref and keep React away from that DOM node
 
 ## Performance Considerations
