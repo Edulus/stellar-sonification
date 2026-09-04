@@ -236,6 +236,7 @@ src/audio/
 
 ```javascript
 class SonificationEngine {
+  constructor()
   setParams(patch)
   on(event, cb)
   ensureContext()
@@ -256,7 +257,7 @@ class SonificationEngine {
 
 `ensureContext()` lazily creates or resumes the `AudioContext`; `setParams()` updates the live synthesis parameters; `on()` exposes the audio-derived overlay event surface. The four click/panel playback methods share the engine's spectral mappings, while the hover methods maintain the separate max-three-star registry and fade lifecycle.
 
-**Chord harmonization.** `playChord(data, amount = this.params.harmonizeAmount)` passes the star's line list to the root [`../../harmonize.js`](../../harmonize.js) implementation through `src/audio/harmonize.js`. The harmonizer chooses the maximum-EW line as root, pulls other pitches toward the nearest just-intonation interval with stronger-EW lines resisting more of that pull, spreads voices that land within 30 cents, and returns the `1/√N` gain scale used by `playChord()`.
+**Chord harmonization.** `playChord(data, amount = this.params.harmonizeAmount)` passes the star's line list to the root [`harmonize.js`](../harmonize.js) implementation through `src/audio/harmonize.js`. The harmonizer chooses the maximum-EW line as root, pulls other pitches toward the nearest just-intonation interval with stronger-EW lines resisting more of that pull, spreads voices that land within 30 cents, and returns the `1/√N` gain scale used by `playChord()`.
 
 **Audio graph per line** (from proven prototype):
 
