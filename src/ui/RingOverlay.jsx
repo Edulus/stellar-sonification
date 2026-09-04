@@ -11,6 +11,12 @@ import { wlToRGB } from "../audio/color.js";
 // release curve; when it stops, the star's bands are removed. Never touches the
 // engine's WebGL context, and never intercepts mouse events (pointer-events:none).
 
+// Tuned visual values, intentionally fixed rather than exposed as panel controls.
+// 200/130/16/1.5 were tuned in the sandbox for the ripple's travel, stretch,
+// birth thickness, and decay. The 0.6 s chord pulse was then validated in the
+// deployed six-star visual pass: a six-second hold read as continuous water
+// ripples rather than a metronomic clock. Reopen these only for a deliberate
+// visual retune, not as incidental cleanup.
 const BASE_RADIUS = 14;
 const BAND_SPEED = 200;       // px/s — leading edge travel
 const BAND_STRETCH = 130;     // px/s — thickening as it travels
