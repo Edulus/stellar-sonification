@@ -49,42 +49,44 @@ Target: clicking Sirius logs `{ hip: 32349, name: "Sirius", spType: "A1V", vmag:
 
 **Goal**: Click a star in the sky and resolve its absorption line data.
 
-> ⚠️ **Carried over from Phase 0 (PHASE0-FINDINGS.md §9):** the bundled engine
-> catalog (`test-skydata`, vmag ≤ 7) provides **no HIP/HD/Gaia ids and no
-> spectral types** — selected stars come back with only name + magnitude +
-> position. Before HIP-keyed resolution can work, Phase 1 must obtain a richer
-> catalog (the `stellarium_star_catalogs` pipeline) **or** add a fallback that
-> matches the engine's selection to our dataset by name/position when HIP is
-> absent. This is the first task, not an afterthought.
+> **Status: CORE RESOLUTION PATH BUILT.** The app has committed starter data,
+> `StarDataResolver`, and selection→resolver integration. The bundled catalog's
+> identifier limits remain a data-tier issue rather than an engine-integration
+> blocker: named bright stars resolve by name/alias, while non-curated stars fall
+> back through spectral type when available, B-V color, then a default template.
+
+> **Phase 0 data finding (PHASE0-FINDINGS.md §11-A):** bundled `test-skydata`
+> gives a star either a proper/Bayer/Flamsteed designation or a HIP id, not both.
+> It carries B-V broadly, no HD/Gaia ids, and no spectral types in the measured
+> sample. A richer catalog is still needed for HIP-keyed lookup of named bright
+> stars.
 
 ### Tasks
 
-- [ ] Create `spectral-templates.json` — curate ~70 canonical spectral type templates, each with 4–8 representative absorption lines
-  - Cover O, B, A, F, G, K, M classes at standard subclasses and luminosity classes (V, III, I)
-  - Use data from `stellar-sonification.jsx` as starting points for the 6 existing stars
-  - Source remaining templates from NIST Atomic Spectra Database + published spectral atlases
-- [ ] Create `bright-stars.json` — start with the 6 stars already in the prototype, expand toward ~100
-  - Key by HIP number for fast lookup
-  - Include all 7 sonification parameters per line: `wl, depth, width, profile, ew, el, ep`
-  - Include star-level fields: `name, type, temp, rv, color`
-- [ ] Implement `StarDataResolver.js`
-  - Load both JSON files at app startup
-  - Implement resolution cascade: bright-stars → template fallback
-  - Implement spectral type parser: handle "G2V", "G2 V", "G2/3V", "G2Ve", "K1.5III", etc.
-  - Implement nearest-match logic for unmatched subtypes
-- [ ] Integrate resolver with bridge: star click → resolve → store result in React state
-- [ ] Build `StarInfoPanel.jsx` — display selected star name, type, temp, RV, data source badge
+- [x] Create starter `spectral-templates.json` — committed pipeline output currently covers 22 canonical spectral types, with generated JS adapter in `src/data/spectral-templates.js`
+  - Covers O, B, A, F, G, K, M starter classes and luminosity examples
+  - Includes the prototype stars' relevant spectral classes
+  - Broader template coverage remains part of the later data-expansion phase
+- [x] Create starter `bright-stars.json` — six curated prototype stars, keyed by HIP where applicable (Sol uses `SOL`), with generated JS adapter in `src/data/bright-stars.js`
+  - Includes all 7 sonification parameters per line: `wl, depth, width, profile, ew, el, ep`
+  - Includes star-level fields: `name, type, temp, rv, color`
+- [x] Implement `StarDataResolver.js`
+  - Resolution cascade: curated name/alias match → template by spectral type → template by B-V → default template
+  - Spectral type parsing handles catalog-style strings and maps unsupported variants to available canonical templates
+  - Every selectable star returns either curated or template data
+- [x] Integrate resolver with bridge: star selection → resolve → store result in React state
+- [ ] Build dedicated `StarInfoPanel.jsx` — not present; selected-star identity/type/temp/RV/data-source are currently shown in `SpectrumPanel`, while `ObjectTooltip` covers hover identity
 - [ ] Create `catalogs.js` — HIP↔HD cross-reference for the curated set (enables lookup by either ID)
 
 ### Acceptance criteria
 
-Clicking any star in the sky populates `StarInfoPanel` with correct metadata and a line list. Bright stars show "curated" badge. Unknown stars show "template" badge with their matched spectral type.
+**Current result:** selecting any star resolves to a curated or template line list and opens `SpectrumPanel`, whose header shows name, type, temperature, RV, and a curated/template badge. A dedicated `StarInfoPanel` and the identifier cross-reference remain open.
 
 ### Key data decisions
 
 - Template absorption lines should be physically reasonable but don't need to be publication-quality. They need to *sound right* — the sonification maps are forgiving of small parameter errors.
-- `rv` for template fallback should default to 0 (no detune). Only curated stars carry measured radial velocities.
-- `color` for template fallback can be computed from `temp` using a Teff→RGB mapping.
+- `rv` for template fallback defaults to 0 (no detune). Only curated stars carry measured radial velocities.
+- `color` for template fallback is computed from `temp` using a Teff→RGB mapping in the adapter.
 
 ---
 
@@ -176,29 +178,32 @@ different chords; sequential mode is unchanged.
 
 **Goal**: When a star is selected, display its absorption spectrum alongside the sky.
 
+> **Status: CORE SPECTRUM PANEL BUILT.** `SpectrumPanel.jsx` is live and handles
+> spectrum rendering, line hover/click, playback controls, and sequence/chord
+> highlighting. The separate `ParamMappingPanel.jsx` described in the original
+> plan has not been built.
+
 ### Tasks
 
-- [ ] Port `SpectrumCanvas` from `stellar-sonification.jsx` → `SpectrumPanel.jsx`
+- [x] Port `SpectrumCanvas` from `stellar-sonification.jsx` → `SpectrumPanel.jsx`
   - Canvas 2D rendering: blackbody curve with absorption dips
   - Wavelength → visible color strip
   - Absorption line markers with element labels
-  - Active/playing line highlighting
-  - Hover detection on lines (show element + wavelength)
-- [ ] Port `ParamBar` → `ParamMappingPanel.jsx`
+  - Active/playing/chord line highlighting
+  - Hover detection on lines with line metadata readout
+- [ ] Port `ParamBar` → dedicated `ParamMappingPanel.jsx`
   - 7 parameter bars showing current sonification mapping
   - Only visible when a line is active (hovered or playing)
-- [ ] Design panel layout
-  - Spectrum panel slides up from bottom or in from right
-  - Semi-transparent background so sky is still partially visible
-  - Collapse/dismiss button
-  - Panel should not intercept engine's mouse events when collapsed
-- [ ] Wire hover/click on spectrum lines → `sonificationEngine.playLine()`
-  - This gives a secondary interaction mode: explore lines visually, click to hear
-- [ ] Sync playing state between sequence playback and spectrum highlighting
+- [x] Design panel layout
+  - Dismissible bottom overlay with semi-transparent background so the sky remains visible
+  - Selected-star identity/data-source badge and SEQ/CHORD/SEED controls live in the panel header
+- [x] Wire hover/click on spectrum lines → `sonificationEngine.playLine()`
+  - Hover highlights and reports line metadata; click plays that line
+- [x] Sync playing state between sequence/chord playback and spectrum highlighting
 
 ### Acceptance criteria
 
-Selecting a star opens the spectrum panel. The panel accurately shows the blackbody curve, absorption dips, and element labels. Hovering a line in the panel highlights it and shows sonification parameters. Clicking a line plays its tone. Playing a sequence animates through lines in the panel.
+**Current result:** selecting a star opens the spectrum panel with blackbody curve, absorption dips, element labels, and wavelength strip. Hovering a line highlights it and shows its line metadata; clicking it plays its tone. Sequence and chord playback animate the corresponding line highlights. The dedicated sonification-parameter mapping panel remains open.
 
 ---
 
@@ -267,18 +272,21 @@ Ideas for later, out of scope for initial release:
 
 ### Hard dependencies
 
-- Stellarium Web Engine builds and runs in current browsers (last active development was ~2022; may need patches)
-- Web Audio API is supported (it is, in all modern browsers)
-- WASM loads correctly through Vite's dev server and production build
+- Stellarium Web Engine build + WASM/WebGL integration is verified with the pinned Emscripten 1.39.17 build procedure; broader browser coverage remains a separate compatibility task
+- Web Audio API is supported in modern browsers; project-specific cross-browser audio verification remains open in Phase 2
+- WASM loading is verified through the development server and the production deployment path
 
-### Unknowns to resolve early
+### Resolved by Phase 0
 
-- **Engine JS API surface**: The engine uses an attribute-based object model (documented in `doc/internals.md`). Properties are accessed via `obj_call()` internally, surfaced to JS through Emscripten bindings. Selection is likely an attribute on `core_t` (e.g., `stel.core.selection`), not an event listener. The `apps/web-frontend/` Vue app in the engine repo is the definitive reference for how JS accesses star properties — study it before writing the bridge.
-- **Designation format**: Stars carry designations as strings (e.g., "HIP 32349", "HD 48915"). The exact format of the designations array returned to JS needs testing. The `stellarium_star_catalogs` repo confirms HIP/HD/Gaia cross-refs exist in the catalog pipeline.
-- **Spectral type availability**: The engine's star catalogs are built from Hipparcos + Gaia DR3 data with spectral data from SIMBAD (per `stellarium_star_catalogs` repo). Bright stars should have spectral types; faint Gaia-only stars may not. Need to test coverage.
-- **Engine interop with React**: The engine manages its own DOM and render loop via WebGL. Using a ref and keeping React away from the canvas subtree should work, but needs Phase 0 verification. The Vue app in the engine repo proves the pattern works with a frontend framework.
-- **WASM binary size**: Star catalog data is hierarchical (levels 0–8) and partially baked into the WASM binary. Need to measure total download size and decide on loading strategy (streaming instantiation, progress indicator).
-- **AGPL-3.0 license**: The engine is AGPL-licensed, not GPL. This affects how the combined work must be licensed — any modifications to the engine or server-side use requires source availability. Our sonification layer is a separate module communicating via the JS API, which may limit copyleft scope, but this needs legal clarity.
+- **Engine JS API surface** — resolved. Selection changes arrive through `stel.change((obj, attr) => ...)`; filter `attr === 'selection'` and read `stel.core.selection`. No selection polling loop is required.
+- **Designation/object format** — resolved. Catalog identifiers come from the `obj.designations()` string array; magnitude/distance/ICRF position use `getInfo(...)`; spectral type/B-V/parallax live in `obj.jsonData.model_data` when present. `getInfo('radec')` is an ICRF Cartesian unit vector, not an `[ra, dec]` pair.
+- **Bundled catalog coverage** — measured. The bundled catalog splits named stars from HIP-only stars, carries B-V broadly, no HD/Gaia ids, and no spectral types in the measured sample. Richer identifiers/spectral coverage are a data-tier task.
+- **Engine interop with React** — resolved. `SkyCanvas.jsx` mounts the engine once into a ref-owned canvas, and the engine safely owns its WebGL/render lifecycle.
+- **WASM / skydata packaging** — resolved. The built WASM is about 1.2 MB; star catalogs and other skydata are separate runtime data sources registered with `addDataSource(...)`, not data baked into the WASM.
+
+### Remaining unknowns
+
+- **AGPL-3.0 license**: the engine is AGPL-licensed. Distribution obligations for the combined application still need legal clarity, especially if the engine itself is modified or used server-side.
 
 ### Nice-to-have explorations
 
