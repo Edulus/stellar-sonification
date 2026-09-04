@@ -102,13 +102,20 @@ def degrade_resolution(wave_a, flux, resolution=TARGET_RESOLUTION):
 def pseudo_continuum(wave_a, flux, window_a):
     from scipy.ndimage import gaussian_filter1d
     wave_a, flux = np.asarray(wave_a), np.asarray(flux)
-    step, half = window_a / 2.0, window_a / 2.0
+    step = half = window_a / 2.0
     centers = np.arange(wave_a[0], wave_a[-1] + step, step)
-    upper = []
-    for c in centers:
-        seg = flux[(wave_a >= c - half) & (wave_a <= c + half)]
-        upper.append(np.percentile(seg, CONTINUUM_PERCENTILE) if len(seg) else np.nan)
-    upper = np.asarray(upper)
+    upper = np.empty_like(centers)
+    left = right = 0
+    n = len(wave_a)
+    for i, c in enumerate(centers):
+        lo, hi = c - half, c + half
+        while left < n and wave_a[left] < lo:
+            left += 1
+        right = max(right, left)
+        while right < n and wave_a[right] <= hi:
+            right += 1
+        seg = flux[left:right]
+        upper[i] = np.percentile(seg, CONTINUUM_PERCENTILE) if len(seg) else np.nan
     good = np.isfinite(upper) & (upper > 0)
     if good.sum() < 4:
         raise ValueError("Could not estimate PHOENIX pseudo-continuum")
@@ -170,21 +177,31 @@ def air_to_vacuum_nm(wl_air_nm):
     return wl_air_nm * n
 
 
-def identify_feature(feature, nist_table):
-    center = feature["wl"]
-    tol_nm = max(0.02, feature["width"] / 20.0)
-    candidates = []
+def prepare_nist_table(nist_table):
+    rows = []
     for row in nist_table or []:
         if len(row) < 3:
             continue
         w_air, el, ep = row[:3]
-        w_vac = air_to_vacuum_nm(w_air)
-        if abs(w_vac - center) <= tol_nm:
-            candidates.append({
-                "wl": w_vac, "el": el, "ep": ep,
-                "loggf": row[3] if len(row) >= 4 else None,
-                "delta_nm": abs(w_vac - center),
-            })
+        rows.append((
+            air_to_vacuum_nm(w_air), el, ep,
+            row[3] if len(row) >= 4 else None,
+        ))
+    rows.sort(key=lambda x: x[0])
+    return rows, [x[0] for x in rows]
+
+
+def _identify_prepared(feature, prepared):
+    import bisect
+    table, wavelengths = prepared
+    center = feature["wl"]
+    tol_nm = max(0.02, feature["width"] / 20.0)
+    lo = bisect.bisect_left(wavelengths, center - tol_nm)
+    hi = bisect.bisect_right(wavelengths, center + tol_nm)
+    candidates = [
+        {"wl": w, "el": el, "ep": ep, "loggf": loggf, "delta_nm": abs(w - center)}
+        for w, el, ep, loggf in table[lo:hi]
+    ]
     if not candidates:
         return None, None, {"reason": "unidentified", "candidates": []}
     if len(candidates) == 1:
@@ -197,6 +214,10 @@ def identify_feature(feature, nist_table):
             c = candidates[int(np.argmax(scores))]
             return c["el"], c["ep"], {"reason": "dominant-loggf", "share": share, "candidates": candidates}
     return None, None, {"reason": "ambiguous-blend", "candidates": candidates}
+
+
+def identify_feature(feature, nist_table):
+    return _identify_prepared(feature, prepare_nist_table(nist_table))
 
 
 def assign_profile(wl_nm, el, teff):
@@ -222,8 +243,9 @@ def extract_atomic_lines(wave_a, flux, teff, nist_table, window_a, diagnostics=N
     dw, df = degrade_resolution(wave_a, flux)
     norm, _ = normalize_spectrum(dw, df, window_a)
     identified = []
+    prepared = prepare_nist_table(nist_table)
     for feat in sorted(measure_features(dw, norm), key=lambda x: x["ew"], reverse=True):
-        el, ep, info = identify_feature(feat, nist_table)
+        el, ep, info = _identify_prepared(feat, prepared)
         if el is None:
             if diagnostics is not None:
                 diagnostics.append({**feat, **info})
