@@ -220,14 +220,15 @@ resolveStarData(starId)
 
 **Purpose**: Accept an absorption line list and produce audio via Web Audio API.
 
-**Design**: Extracted and generalized from `stellar-sonification.jsx`. The prototype has all the mapping logic proven; this layer restructures it as a reusable module.
+**Design**: Extracted and generalized from `stellar-sonification.jsx`. The modular engine now owns single-line, sequential, harmonized-chord, seeded-piece, and hover playback paths.
 
 **Module structure**:
 
 ```
 src/audio/
-├── SonificationEngine.js   # Orchestrator: manages AudioContext, plays lines
+├── SonificationEngine.js   # Orchestrator: AudioContext, playback, hover registry
 ├── mappings.js              # Pure functions: wlToFreq, depthToGain, widthToQ, etc.
+├── harmonize.js             # Re-export of the root harmonizer used by playChord
 └── reverb.js                # Algorithmic reverb builder (4-tap delay network)
 ```
 
@@ -235,29 +236,27 @@ src/audio/
 
 ```javascript
 class SonificationEngine {
-  constructor() {
-    this.ctx = null;  // Lazy AudioContext creation (requires user gesture)
-    this.activeNodes = [];
-  }
+  setParams(patch)
+  on(event, cb)
+  ensureContext()
+  stop()
 
-  // Initialize on first user interaction
-  init() {
-    this.ctx = new AudioContext();
-  }
+  playLine(line, starRV = 0)
+  playSequence(data, opts = {})
+  playChord(data, amount = this.params.harmonizeAmount)
+  playSeed(data, opts = {})
+  getParams(line, starRV = 0)
 
-  // Play a single absorption line
-  playLine(line: AbsorptionLine, starRV: number): void
-
-  // Play all lines in sequence (sorted by EW descending)
-  playSequence(data: StarSpectralData): void
-
-  // Stop all current playback
-  stop(): void
-
-  // Get computed audio parameters for a line (for UI display)
-  getParams(line: AbsorptionLine, starRV: number): SonificationParams
+  startHoverChord(key, data, screenPos)
+  startHoverSequence(key, data, screenPos, opts = {})
+  fadeHoverStar(key, durationSec)
+  fadeAllHover(durationSec)
 }
 ```
+
+`ensureContext()` lazily creates or resumes the `AudioContext`; `setParams()` updates the live synthesis parameters; `on()` exposes the audio-derived overlay event surface. The four click/panel playback methods share the engine's spectral mappings, while the hover methods maintain the separate max-three-star registry and fade lifecycle.
+
+**Chord harmonization.** `playChord(data, amount = this.params.harmonizeAmount)` passes the star's line list to the root [`../../harmonize.js`](../../harmonize.js) implementation through `src/audio/harmonize.js`. The harmonizer chooses the maximum-EW line as root, pulls other pitches toward the nearest just-intonation interval with stronger-EW lines resisting more of that pull, spreads voices that land within 30 cents, and returns the `1/√N` gain scale used by `playChord()`.
 
 **Audio graph per line** (from proven prototype):
 
@@ -285,6 +284,8 @@ osc_sub (sine, freq*0.5, if EP<0.2)────────┘       │
                                                        ▼
                                                   destination
 ```
+
+This topology still describes each chord voice through oscillator bank → filter → ADSR → dry/reverb. Chord mode builds its per-voice reverb network inline rather than calling `createReverbBus()`, applies amount-driven detune/filter/reverb changes, and routes every dry/wet voice through an additional chord-level master swell/release envelope before the destination.
 
 **Critical implementation notes from the prototype**:
 - AudioContext must be created after a user gesture (browser autoplay policy)
@@ -354,10 +355,13 @@ interface AppState {
       │
 6. App.jsx receives StarSpectralData, updates state
       │
-7. SpectrumPanel renders absorption spectrum on canvas
+7. SpectrumPanel renders absorption spectrum on canvas; selection itself stays silent
       │
-8. SonificationEngine.playLine(data.lines[0], data.rv) fires immediately
-      │  (or user clicks "play all" → playSequence(data))
+8. User presses ▶; App.jsx dispatches by mode:
+      │    CHORD → SonificationEngine.playChord(data)
+      │    SEED  → SonificationEngine.playSeed(data, opts)
+      │    SEQ   → SonificationEngine.playSequence(data)
+      │  A spectrum-line click instead calls playLine(line, rv)
       │
 9. Web Audio graph builds: oscillators → filter → ADSR → dry/reverb → speakers
       │
