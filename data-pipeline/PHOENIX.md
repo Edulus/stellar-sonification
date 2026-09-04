@@ -13,7 +13,7 @@ The directory may preserve the archive tree or be flat. It must contain:
 - `WAVE_PHOENIX-ACES-AGSS-COND-2011.fits`
 - model files named like `lte05800-4.50-0.0.PHOENIX-ACES-AGSS-COND-2011-HiRes.fits`
 
-The wavelength array is treated as vacuum wavelength. NIST optical wavelengths in the existing cache are converted from air to vacuum before matching.
+The wavelength array is treated as vacuum wavelength. NIST optical wavelengths in the cache are converted from air to vacuum before matching.
 
 ## Grid policy
 
@@ -38,9 +38,9 @@ The window is selected empirically per PHOENIX run rather than hard-coded withou
 
 ## Identification and blends
 
-Current NIST caches contain wavelength, species and excitation potential. A feature with one candidate transition is retained. A feature with multiple candidates is dropped because the existing cache has no quantitative strength field.
+`nist.py` now requests NIST absorption oscillator strength `f_ik` and lower-level statistical weight `g_i` and stores `log(gf) = log10(g_i * f_ik)` when both are available. Its cache is backward-compatible with older three-column files that contain only wavelength, species and excitation potential.
 
-`phoenix.py` also supports a fourth cache field interpreted as `log(gf)`. If present for all candidates, intrinsic proxy weights are `10**log(gf)` and one transition must own at least 70% to identify the blend. Raw NIST relative intensity is deliberately not used for this threshold.
+A feature with one candidate transition is retained. For a multi-transition blend, `phoenix.py` uses `10**log(gf)` as an explicitly operational intrinsic-strength proxy when every candidate has that field. One transition must own at least 70% of the proxy weight to identify the blend. If the cache is old or any candidate lacks a defensible strength value, the blend is dropped. Raw NIST relative intensity is deliberately never used for this threshold.
 
 Dropped features, their measured values and candidate transitions are written to `phoenix-diagnostics.json`.
 
@@ -56,6 +56,6 @@ The repo currently has one sourced molecular-band anchor, TiO γ at 705.3 nm. Co
 
 ## Verification
 
-`npm run verify:phoenix` is browser-free and checks grid discovery, out-of-grid rejection, wavelength-frame conversion, blend rejection, optional `log(gf)` dominance, synthetic feature extraction and pitch-spacing de-duplication.
+`npm run verify:phoenix` is browser-free and checks the NIST `log(gf)` cache path, grid discovery, out-of-grid rejection, wavelength-frame conversion, conservative blend rejection, `log(gf)` dominance, synthetic feature extraction and pitch-spacing de-duplication.
 
 A real PHOENIX run additionally produces `phoenix-diagnostics.json`; it is intentionally git-ignored because it is run-specific and can be large.
