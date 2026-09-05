@@ -52,13 +52,14 @@ export default function App() {
 
   // Hover mode: when enabled, mousing over a star in the sky triggers audio.
   const [hoverEnabled, setHoverEnabled] = useState(false);
-  const [hoverType, setHoverType] = useState("chord");   // 'chord' | 'sequence'
-  const [hoverRepeat, setHoverRepeat] = useState("once"); // 'once' | 'loop'
+  const [hoverType, setHoverType] = useState("chord");   // 'chord' | 'sequence' | 'seed'
+  const [hoverRepeat, setHoverRepeat] = useState("once"); // 'once' | 'loop' (sequence only)
   const [hoveredStar, setHoveredStar] = useState(null);   // star currently singing under the cursor
   // Hover *tooltip* — independent of hover audio: pointing at anything in the
   // sky always identifies it, whether or not hover mode is on.
   const [hoverTarget, setHoverTarget] = useState(null);   // {info, x, y, key}
   const hoverStarKeyRef = useRef(null); // the one star currently admitted to hover audio
+  const hoverPlaybackTypeRef = useRef(null); // actual mode started for that star
 
   // Refs mirror state so the SkyCanvas handlers (and engine callbacks) can read
   // current values while staying referentially stable — changing their identity
@@ -82,12 +83,15 @@ export default function App() {
   useEffect(() => { hoverRepeatRef.current = hoverRepeat; }, [hoverRepeat]);
 
   // Immediate hover cutoff used when another star is about to start sounding.
-  // Normal cursor-leave still uses the configured fade; replacement cannot,
-  // because overlapping fades would violate the one-star audio invariant.
+  // Normal cursor-leave still uses the configured fade for CHORD/SEQ; replacement
+  // cannot overlap because only one star may sing at a time. SEED uses the normal
+  // click-playback pool, so it is explicitly stopped here.
   const cutHoverAudio = useCallback(() => {
     const engine = engineRef.current;
     [...engine.hoverStars.keys()].forEach((key) => engine._hardStopHoverStar(key));
+    if (hoverPlaybackTypeRef.current === "seed") engine.stop();
     hoverStarKeyRef.current = null;
+    hoverPlaybackTypeRef.current = null;
     setHoveredStar(null);
   }, []);
 
@@ -154,7 +158,7 @@ export default function App() {
 
   // Hover enter: resolve the hovered star and make it the sole sounding star.
   // A new hover star immediately replaces any prior hover or panel playback.
-  // Chord = sustained; sequence = arpeggio (looping if set).
+  // CHORD = sustained, SEQ = arpeggio, SEED = the star's deterministic piece.
   const handleStarHovered = useCallback((star) => {
     // Tooltip first — it is not gated on hover audio.
     if (star.info) {
@@ -168,40 +172,50 @@ export default function App() {
     // Repeated events for the same still-ringing star are idempotent. Moving to
     // another star cuts the previous one before the new star starts, so there is
     // never an audible cross-star overlap.
-    if (hoverStarKeyRef.current !== key) {
-      cutHoverAudio();
-      engineRef.current.stop();
-      hoverStarKeyRef.current = key;
-    }
+    if (hoverStarKeyRef.current === key) return;
+
+    cutHoverAudio();
+    engineRef.current.stop();
+    hoverStarKeyRef.current = key;
+    hoverPlaybackTypeRef.current = hoverTypeRef.current;
 
     // resolve() returns a fresh object; carry the star's screen position through
     // so the label can be drawn on the star.
     setHoveredStar({ ...resolved, starKey: key, screenX: star.screenX, screenY: star.screenY });
     if (hoverTypeRef.current === "chord") {
       engineRef.current.startHoverChord(key, resolved, pos);
-    } else {
+    } else if (hoverTypeRef.current === "sequence") {
       engineRef.current.startHoverSequence(key, resolved, pos, {
         loop: hoverRepeatRef.current === "loop",
       });
+    } else {
+      // Hover SEED uses the existing deterministic composer. With no override,
+      // the star's own stable identity is its seed, matching normal SEED mode.
+      engineRef.current.playSeed(resolved);
     }
   }, [cutHoverAudio]);
 
-  // Cursor left all stars → wind the one ringing hover star down with the normal
-  // configured fade. If another star is entered during that fade, its hover-enter
-  // handler hard-stops this tail before starting the replacement.
+  // Cursor left all stars → wind CHORD/SEQ down with the normal configured fade.
+  // Hover SEED uses the click-playback pool, so it is stopped on leave.
   const handleStarUnhovered = useCallback(() => {
     setHoverTarget(null);
     setHoveredStar(null);
+    const activeType = hoverPlaybackTypeRef.current;
     hoverStarKeyRef.current = null;
-    engineRef.current.fadeAllHover(engineRef.current.params.hoverFadeOut);
+    hoverPlaybackTypeRef.current = null;
+    if (activeType === "seed") engineRef.current.stop();
+    else engineRef.current.fadeAllHover(engineRef.current.params.hoverFadeOut);
   }, []);
 
-  // Turning hover mode off fades the one hover star still ringing.
+  // Turning hover mode off silences whichever hover mode is currently active.
   useEffect(() => {
     if (!hoverEnabled) {
+      const activeType = hoverPlaybackTypeRef.current;
       hoverStarKeyRef.current = null;
+      hoverPlaybackTypeRef.current = null;
       setHoveredStar(null);
-      engineRef.current.fadeAllHover(engineRef.current.params.hoverFadeOut);
+      if (activeType === "seed") engineRef.current.stop();
+      else engineRef.current.fadeAllHover(engineRef.current.params.hoverFadeOut);
     }
   }, [hoverEnabled]);
 
