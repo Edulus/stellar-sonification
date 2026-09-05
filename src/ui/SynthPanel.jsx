@@ -80,20 +80,22 @@ export default function SynthPanel({
 
             {hoverEnabled && (
               <>
-                {/* Chord / Sequence trigger */}
+                {/* Chord / Sequence / Seed trigger */}
                 <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                  {["chord", "sequence"].map((t) => (
+                  {[["chord", "CHORD"], ["sequence", "SEQ"], ["seed", "SEED"]].map(([t, label]) => (
                     <button key={t} onClick={() => onHoverType(t)}
                       style={{ ...styles.toggle, flex: 1, borderColor: hoverType === t ? "#5b86c4" : "rgba(120,140,180,0.3)", color: hoverType === t ? "#add2ff" : "rgba(170,178,196,0.5)", textTransform: "uppercase", letterSpacing: 1 }}>
-                      {t}
+                      {label}
                     </button>
                   ))}
                 </div>
 
-                {/* Fade out */}
-                <Slider spec={{ key: "hoverFadeOut", label: "Fade out (s)", min: 0.2, max: 3.0, step: 0.1 }}
-                  value={params.hoverFadeOut} changed={params.hoverFadeOut !== 0.8}
-                  onChange={(v) => onChange({ hoverFadeOut: v })} />
+                {/* Fade applies to the sustained/arpeggiated hover engines. */}
+                {hoverType !== "seed" && (
+                  <Slider spec={{ key: "hoverFadeOut", label: "Fade out (s)", min: 0.2, max: 3.0, step: 0.1 }}
+                    value={params.hoverFadeOut} changed={params.hoverFadeOut !== 0.8}
+                    onChange={(v) => onChange({ hoverFadeOut: v })} />
+                )}
 
                 {hoverType === "chord" && (
                   <>
@@ -125,6 +127,12 @@ export default function SynthPanel({
                       </div>
                     </div>
                   </>
+                )}
+
+                {hoverType === "seed" && (
+                  <div style={{ ...styles.foot, marginTop: 2 }}>
+                    Plays this star's deterministic SEED arrangement while hovered.
+                  </div>
                 )}
               </>
             )}
