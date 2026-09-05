@@ -21,7 +21,12 @@ import { ALL_SITES } from "../data/locations.js";
 export default function App() {
   const engineRef = useRef(null);
   const resolverRef = useRef(null);
-  if (!engineRef.current) engineRef.current = new SonificationEngine();
+  if (!engineRef.current) {
+    engineRef.current = new SonificationEngine();
+    // Product invariant: only one star may sing at a time. Keep the engine's
+    // own hover admission cap at one as a second line of defense.
+    engineRef.current.MAX_HOVER_STARS = 1;
+  }
   if (!resolverRef.current) resolverRef.current = new StarDataResolver();
 
   const [data, setData] = useState(null); // resolved spectral data for selection
@@ -53,6 +58,7 @@ export default function App() {
   // Hover *tooltip* — independent of hover audio: pointing at anything in the
   // sky always identifies it, whether or not hover mode is on.
   const [hoverTarget, setHoverTarget] = useState(null);   // {info, x, y, key}
+  const hoverStarKeyRef = useRef(null); // the one star currently admitted to hover audio
 
   // Refs mirror state so the SkyCanvas handlers (and engine callbacks) can read
   // current values while staying referentially stable — changing their identity
@@ -74,6 +80,16 @@ export default function App() {
   useEffect(() => { hoverEnabledRef.current = hoverEnabled; }, [hoverEnabled]);
   useEffect(() => { hoverTypeRef.current = hoverType; }, [hoverType]);
   useEffect(() => { hoverRepeatRef.current = hoverRepeat; }, [hoverRepeat]);
+
+  // Immediate hover cutoff used when another star is about to start sounding.
+  // Normal cursor-leave still uses the configured fade; replacement cannot,
+  // because overlapping fades would violate the one-star audio invariant.
+  const cutHoverAudio = useCallback(() => {
+    const engine = engineRef.current;
+    [...engine.hoverStars.keys()].forEach((key) => engine._hardStopHoverStar(key));
+    hoverStarKeyRef.current = null;
+    setHoveredStar(null);
+  }, []);
 
   // Play resolved star data in the currently-selected mode.
   const playInMode = useCallback((resolved) => {
@@ -126,19 +142,19 @@ export default function App() {
   }, []);
 
   // Clicking a star opens its spectrum but stays silent — playback is explicit,
-  // via the panel's ▶ button. (Hover mode is the other, deliberately automatic
-  // path; it is unaffected by this.) Any previous star's melody is cut so the
+  // via the panel's ▶ button. Any previous star, including hover audio, is cut so
   // sound never outlives the spectrum that produced it.
   const handleStarSelected = useCallback((star) => {
     const resolved = resolverRef.current.resolve(star);
+    cutHoverAudio();
     engineRef.current.stop();
     setData(resolved);
     setSeed(""); // back to this star's own seed; a reroll was for the old star
-  }, []);
+  }, [cutHoverAudio]);
 
-  // Hover enter: resolve the hovered star and start hover audio, keyed by the
-  // star's stable id so up to 3 can ring at once (the engine caps + force-fades
-  // the oldest). Chord = sustained; sequence = arpeggio (looping if set).
+  // Hover enter: resolve the hovered star and make it the sole sounding star.
+  // A new hover star immediately replaces any prior hover or panel playback.
+  // Chord = sustained; sequence = arpeggio (looping if set).
   const handleStarHovered = useCallback((star) => {
     // Tooltip first — it is not gated on hover audio.
     if (star.info) {
@@ -148,9 +164,19 @@ export default function App() {
     const resolved = resolverRef.current.resolve(star);
     const key = star.starKey;
     const pos = { x: star.screenX, y: star.screenY };
+
+    // Repeated events for the same still-ringing star are idempotent. Moving to
+    // another star cuts the previous one before the new star starts, so there is
+    // never an audible cross-star overlap.
+    if (hoverStarKeyRef.current !== key) {
+      cutHoverAudio();
+      engineRef.current.stop();
+      hoverStarKeyRef.current = key;
+    }
+
     // resolve() returns a fresh object; carry the star's screen position through
     // so the label can be drawn on the star.
-    setHoveredStar({ ...resolved, starKey: key, screenX: star.screenX, screenY: star.screenY }); // surface which star is singing
+    setHoveredStar({ ...resolved, starKey: key, screenX: star.screenX, screenY: star.screenY });
     if (hoverTypeRef.current === "chord") {
       engineRef.current.startHoverChord(key, resolved, pos);
     } else {
@@ -158,38 +184,48 @@ export default function App() {
         loop: hoverRepeatRef.current === "loop",
       });
     }
-  }, []);
+  }, [cutHoverAudio]);
 
-  // Cursor left all stars → wind every ringing star down with the rapid fade.
+  // Cursor left all stars → wind the one ringing hover star down with the normal
+  // configured fade. If another star is entered during that fade, its hover-enter
+  // handler hard-stops this tail before starting the replacement.
   const handleStarUnhovered = useCallback(() => {
     setHoverTarget(null);
     setHoveredStar(null);
+    hoverStarKeyRef.current = null;
     engineRef.current.fadeAllHover(engineRef.current.params.hoverFadeOut);
   }, []);
 
-  // Turning hover mode off fades any stars still ringing.
+  // Turning hover mode off fades the one hover star still ringing.
   useEffect(() => {
-    if (!hoverEnabled) engineRef.current.fadeAllHover(engineRef.current.params.hoverFadeOut);
+    if (!hoverEnabled) {
+      hoverStarKeyRef.current = null;
+      setHoveredStar(null);
+      engineRef.current.fadeAllHover(engineRef.current.params.hoverFadeOut);
+    }
   }, [hoverEnabled]);
 
   const handleDeselected = useCallback(() => {
+    cutHoverAudio();
     engineRef.current.stop();
     setData(null);
     setPlayingIdx(null);
     setChordIndices(null);
-  }, []);
+  }, [cutHoverAudio]);
 
   // The panel's ▶: play the current star in the current mode. This is the only
-  // way a click-selected star makes sound.
+  // way a click-selected star makes sound; it replaces any hover star first.
   const handleReplay = useCallback(() => {
+    cutHoverAudio();
     engineRef.current.ensureContext(); // this click is the user gesture
     playInMode(dataRef.current);
-  }, [playInMode]);
+  }, [cutHoverAudio, playInMode]);
 
-  // The panel's ■: cut playback without dismissing the spectrum.
+  // The panel's ■: cut all playback without dismissing the spectrum.
   const handleStop = useCallback(() => {
+    cutHoverAudio();
     engineRef.current.stop();
-  }, []);
+  }, [cutHoverAudio]);
 
   // Switch sequence <-> chord. Silent, like selection: it arms the next ▶ press
   // rather than starting a melody the user didn't ask for.
@@ -199,10 +235,12 @@ export default function App() {
     engineRef.current.stop();
   }, []);
 
-  // Play one line (from clicking it in the spectrum panel).
+  // Play one line (from clicking it in the spectrum panel). A hover star is cut
+  // first so this selected star remains the sole source of audio.
   const handlePlayLine = useCallback((idx) => {
     const d = data;
     if (!d) return;
+    cutHoverAudio();
     engineRef.current.playLine(d.lines[idx], d.rv ?? 0);
     setPlayingIdx(idx);
     clearTimeout(singleClearRef.current);
@@ -210,7 +248,7 @@ export default function App() {
       () => setPlayingIdx(null),
       engineRef.current.params.toneDuration * 1000
     );
-  }, [data]);
+  }, [cutHoverAudio, data]);
 
   const handleParamChange = useCallback((patch) => {
     engineRef.current.setParams(patch);
