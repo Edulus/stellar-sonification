@@ -239,3 +239,21 @@ in every view (faintest assigned m 1.8 at 120°, m 2.9 at 60°).
 **Drift item (not fixed, outside scope):** `verify:tooltip`'s "hides on empty sky" step is
 flaky. It failed and then passed on identical code, and it fails the same way with this
 change stashed. It moves the cursor to (3, 3) and assumes that corner is always starless.
+
+## 9. Change to brief §2.6: two-colour pulses (requested 2026-11-06)
+
+The brief has each pulse "in the star's display color." At the user's request, a melody
+pulse now carries two colours:
+
+- **Rim = tone colour.** The note's pitch is converted back to a wavelength on the app's own
+  pitch scale with `freqToWl`, a new pure function in `mappings.js` that is the exact inverse
+  of `wlToFreq`, clamped to 380–760 nm. It is then coloured with the shared `wlToRGB`, the
+  same function the spectrum panel and the hover bands use. Over the presets' range that
+  runs from C4 at 633 nm (orange) to G5 at 433 nm (violet). In honest mode the note is a real
+  line at its real pitch, so the rim is exactly that line's colour.
+- **Glow = star colour**, as before. That is the template's temperature colour, or the
+  curated star's colour.
+
+Hover, sequence and chord bands are unchanged: one colour, the line's. `verify:melody` checks
+that `freqToWl` inverts `wlToFreq`. `verify:melody-live` checks that every pulse's rim is
+its note's tone, its glow is its star's colour, and the drawn bands match both.

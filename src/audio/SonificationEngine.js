@@ -8,7 +8,7 @@
 
 import {
   wlToFreq, depthToGain, widthToQ, profileToEnvelope, ewToReverb,
-  rvToDetune, epToHarmonics, magToGain, DEFAULT_PARAMS,
+  rvToDetune, epToHarmonics, magToGain, freqToWl, DEFAULT_PARAMS,
 } from "./mappings.js";
 import { fitEnvelope } from "./envelope.js";
 import { createReverbBus } from "./reverb.js";
@@ -768,7 +768,7 @@ export class SonificationEngine {
    * detune, then schedules everything off one absolute audio-clock start like
    * playSeed, so timer jitter cannot make the tune drift.
    *
-   * Emits `melodyNote` { starKey, color, durationSec, getPos } at each note's
+   * Emits `melodyNote` { starKey, color, toneWl, durationSec, getPos } at each note's
    * audible onset (the band overlay pulses that star), and `starStopped` for
    * every star when the melody ends or stop() is called.
    *
@@ -807,6 +807,9 @@ export class SonificationEngine {
           this._emit("melodyNote", {
             starKey: key,
             color: e.star.color,
+            // Pitch → wavelength on the app's own scale. In honest mode the note
+            // is the line's real pitch, so this is exactly the line's wavelength.
+            toneWl: freqToWl(e.freq, p),
             durationSec: e.dur,
             getPos: opts.getPos ? () => opts.getPos(e.star) : null,
           });

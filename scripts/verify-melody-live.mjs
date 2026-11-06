@@ -84,7 +84,7 @@ try {
     const orig = AC.prototype.createOscillator;
     AC.prototype.createOscillator = function (...a) { window.__oscCount++; return orig.apply(this, a); };
     window.__notes = [];
-    window.__engine.on("melodyNote", (e) => window.__notes.push({ key: e.starKey, color: e.color, dur: e.durationSec, t: performance.now() }));
+    window.__engine.on("melodyNote", (e) => window.__notes.push({ key: e.starKey, color: e.color, wl: e.toneWl, dur: e.durationSec, t: performance.now() }));
   });
 
   // ── 2. Twinkle: six stars, coolest → lowest ─────────────────────────────
@@ -105,7 +105,14 @@ try {
   const notes = await page.evaluate(() => window.__notes.slice());
   const colorOf = Object.fromEntries(m.stars.map((s) => [s.key, s.color]));
   ok(notes.length >= 7, `${notes.length} melody notes pulsed in 4.5 s`);
-  ok(notes.every((n) => n.color === colorOf[n.key]), "every pulse uses its star's display colour");
+  ok(notes.every((n) => n.color === colorOf[n.key]), "every pulse's glow uses its star's display colour");
+  // Tone colour: the rim is the note's pitch as a wavelength, through wlToRGB.
+  const toneOk = await page.evaluate(async (notes) => {
+    const { freqToWl } = await import("/src/audio/mappings.js");
+    const ev = window.__melody.plan.events;
+    return notes.every((n, i) => Math.abs(n.wl - freqToWl(ev[i].freq, window.__engine.params)) < 1e-9);
+  }, notes);
+  ok(toneOk, `every pulse's rim is its note's tone colour (first notes at ${notes.slice(0, 3).map((n) => n.wl.toFixed(0) + " nm").join(", ")})`);
   ok(notes.every((n, i) => Math.abs(n.dur - m.durs[i]) < 1e-9) && Math.abs(notes[0].dur - 0.6) < 1e-9 && Math.abs(notes[6].dur - 1.2) < 1e-9,
     "pulse life = note length (0.6 s quarter, 1.2 s half at 100 bpm)");
   const gaps = notes.slice(1, 6).map((n, i) => n.t - notes[i].t);
@@ -116,6 +123,17 @@ try {
   const osc = await page.evaluate(() => window.__oscCount);
   ok(osc > 0, `audio sounding (${osc} oscillators)`);
   const bands = await page.evaluate(() => window.__ringOverlay.bands().filter((b) => b.key.startsWith("melody:")));
+  const bandColours = await page.evaluate(async () => {
+    const { wlToRGB } = await import("/src/audio/color.js");
+    // Read bands and the note log in the same synchronous step (no race).
+    const bands = window.__ringOverlay.bands().filter((b) => b.key.startsWith("melody:") && b.n > 0);
+    const last = {};
+    for (const n of window.__notes) last[n.key] = n;
+    const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    return bands.every((b) => last[b.key] && JSON.stringify(b.rim) === JSON.stringify(wlToRGB(last[b.key].wl))
+      && JSON.stringify(b.rgb) === JSON.stringify(hex(last[b.key].color))) && bands.length > 0;
+  });
+  ok(bands.length > 0 && bandColours, "drawn bands: tone-coloured rim, star-coloured glow");
   const proj = await page.evaluate((keys) => keys.map((k) => {
     const s = window.__melody.assignment.stars.find((x) => x.key === k);
     return window.__bridge.projectToScreen(s.radecICRF);

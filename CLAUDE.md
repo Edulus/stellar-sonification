@@ -149,9 +149,13 @@ Joy, Greensleeves) across the brightest stars in view. The brief and decisions a
   Notes use `_buildVoice(…, {envFit: "proportional"})`: A/D/R scale together only when the
   note is shorter than their sum. `playLine(line, rv, duration)` has the same opt-in; omit
   `duration` and it is bit-identical to before.
-- **Pulses**: `melodyNote` events → `RingOverlay` draws one band per note in the **star's**
-  colour, living for the note's length, and re-projects the star every frame so pulses
-  follow pans. `stop()` emits `starStopped` per melody star, which clears them.
+- **Pulses**: `melodyNote` events → `RingOverlay` draws one band per note, living for the
+  note's length, and re-projects the star every frame so pulses follow pans. **Two colours:**
+  the leading rim is the note's **tone colour** (`freqToWl` in `mappings.js`, the inverse of
+  `wlToFreq`, then the shared `wlToRGB`: low notes orange-red, high notes violet; in honest
+  mode exactly the line's own colour) and the glow behind it is the **star's** display colour.
+  Hover/SEQ/CHORD bands are unchanged (one colour, the line's). `stop()` emits `starStopped`
+  per melody star, which clears them.
 - **Exclusivity**: melody calls `stop()` first; anything else that calls `stop()` (CHORD/SEQ/
   SEED ▶, hover, selecting a star) ends the melody and resets its button via `onMelodyEnd`.
 

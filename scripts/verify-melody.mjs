@@ -17,7 +17,7 @@ import { MELODY_PRESETS } from "../src/melodies/presets.js";
 import {
   assignStars, distinctPitches, planMelody, driftStats, midiToFreq, strongestLine,
 } from "../src/melodies/melody.js";
-import { magToGain, wlToFreq, DEFAULT_PARAMS, profileToEnvelope } from "../src/audio/mappings.js";
+import { magToGain, wlToFreq, freqToWl, DEFAULT_PARAMS, profileToEnvelope } from "../src/audio/mappings.js";
 import { fitEnvelope } from "../src/audio/envelope.js";
 
 let fails = 0;
@@ -43,6 +43,12 @@ ok(near(db(magToGain(6)), -18), "mag 6.0 → −18 dB");
 ok(near(db(magToGain(2.25)), -9), "mag 2.25 → −9 dB (linear in dB)");
 ok(near(magToGain(-4), magToGain(-1.5)) && near(magToGain(9), magToGain(6)), "clamped outside −1.5…6.0");
 ok(magToGain(0) > magToGain(1) && magToGain(1) > magToGain(4), "monotonic: brighter is louder");
+
+// 2b. freqToWl — tone colour source (inverse of wlToFreq)
+ok([380, 434, 486.1, 589, 656.3, 760].every((wl) => near(freqToWl(wlToFreq(wl)), wl, 1e-9)), "freqToWl inverts wlToFreq across the band");
+ok(Math.abs(freqToWl(midiToFreq(60)) - 633.33) < 0.01 && Math.abs(freqToWl(midiToFreq(79)) - 432.78) < 0.01,
+  `tone wavelengths: C4 → ${freqToWl(midiToFreq(60)).toFixed(1)} nm (orange), G5 → ${freqToWl(midiToFreq(79)).toFixed(1)} nm (violet)`);
+ok(freqToWl(midiToFreq(20)) === 760 && freqToWl(midiToFreq(120)) === 380, "out-of-range pitches clamp to the visible band");
 
 // 3. fitEnvelope
 const lor = profileToEnvelope("lorentzian"); // a+d+r = 0.41

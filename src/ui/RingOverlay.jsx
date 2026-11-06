@@ -128,10 +128,12 @@ export default function RingOverlay({ engine }) {
       sys.fadeDur = fadeDurationSec || 0.001;
     };
 
-    // Melody mode: one band per note, in the star's own display colour, living
-    // exactly as long as the note. `getPos` re-projects the star each frame so
-    // the pulse stays on it while the view pans (MELODY-FINDINGS §3).
-    const onMelodyNote = ({ starKey, color, durationSec, getPos }) => {
+    // Melody mode: one band per note, living exactly as long as the note. Two
+    // colours: the bright leading rim is the note's tone colour (its pitch as a
+    // wavelength, through the same wlToRGB the spectrum uses), the softer glow
+    // behind it is the singing star's display colour. `getPos` re-projects the
+    // star each frame so the pulse stays on it while the view pans.
+    const onMelodyNote = ({ starKey, color, toneWl, durationSec, getPos }) => {
       let sys = systemsRef.current.get(starKey);
       if (!sys) {
         sys = { mode: "melody", pos: null, getPos, bands: [], fadeStartT: null, fadeDur: 0 };
@@ -141,7 +143,14 @@ export default function RingOverlay({ engine }) {
       const pos = sys.getPos?.();
       if (pos) sys.pos = pos;
       if (!sys.pos) return;
-      sys.bands.push({ born: now(), life: Math.max(0.05, durationSec), rgb: hexToRGB(color) || [255, 255, 255], peak: MELODY_PEAK });
+      const starRGB = hexToRGB(color) || [255, 255, 255];
+      sys.bands.push({
+        born: now(),
+        life: Math.max(0.05, durationSec),
+        rgb: starRGB,
+        rim: toneWl != null ? wlToRGB(toneWl) : null,
+        peak: MELODY_PEAK,
+      });
       ensureRaf();
     };
 
@@ -216,12 +225,23 @@ export default function RingOverlay({ engine }) {
           const grad = ctx.createRadialGradient(sys.pos.x, sys.pos.y, 0, sys.pos.x, sys.pos.y, outer);
           grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
           grad.addColorStop(innerStop, `rgba(${r},${g},${b},0)`);
-          grad.addColorStop(
-            Math.min(0.999, innerStop + (1 - innerStop) * 0.55),
-            `rgba(${r},${g},${b},${alpha * 0.35})`
-          );
-          grad.addColorStop(0.985, `rgba(${r},${g},${b},${alpha})`);
-          grad.addColorStop(1, `rgba(${r},${g},${b},${alpha * 0.45})`);
+          if (band.rim) {
+            // Two-colour melody band: star-coloured glow, then a tone-coloured rim.
+            const [tr, tg, tb] = band.rim;
+            const glow = Math.min(0.96, innerStop + (1 - innerStop) * 0.55);
+            const glowEnd = Math.min(0.97, Math.max(glow, innerStop + (1 - innerStop) * 0.82));
+            grad.addColorStop(glow, `rgba(${r},${g},${b},${alpha * 0.5})`);
+            grad.addColorStop(glowEnd, `rgba(${r},${g},${b},${alpha * 0.6})`);
+            grad.addColorStop(0.985, `rgba(${tr},${tg},${tb},${alpha})`);
+            grad.addColorStop(1, `rgba(${tr},${tg},${tb},${alpha * 0.45})`);
+          } else {
+            grad.addColorStop(
+              Math.min(0.999, innerStop + (1 - innerStop) * 0.55),
+              `rgba(${r},${g},${b},${alpha * 0.35})`
+            );
+            grad.addColorStop(0.985, `rgba(${r},${g},${b},${alpha})`);
+            grad.addColorStop(1, `rgba(${r},${g},${b},${alpha * 0.45})`);
+          }
 
           ctx.fillStyle = grad;
           ctx.beginPath();
@@ -244,7 +264,7 @@ export default function RingOverlay({ engine }) {
     window.__ringOverlay = {
       isAnimating: () => rafRef.current != null,
       count: () => systemsRef.current.size,
-      bands: () => [...systemsRef.current.entries()].map(([k, s]) => ({ key: k, mode: s.mode, n: s.bands.length, pos: s.pos, rgb: s.bands[0]?.rgb ?? null, life: s.bands[0]?.life ?? null })),
+      bands: () => [...systemsRef.current.entries()].map(([k, s]) => ({ key: k, mode: s.mode, n: s.bands.length, pos: s.pos, rgb: s.bands[0]?.rgb ?? null, rim: s.bands[s.bands.length - 1]?.rim ?? null, life: s.bands[0]?.life ?? null })),
     };
 
     return () => {

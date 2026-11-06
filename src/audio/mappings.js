@@ -126,3 +126,14 @@ export function magToGain(mag, p = DEFAULT_PARAMS) {
   const db = ((m - p.magBright) / (p.magFaint - p.magBright)) * p.magFaintDb;
   return Math.pow(10, db / 20);
 }
+
+// Inverse of wlToFreq: the wavelength (nm) a frequency sits at on the app's
+// pitch scale, clamped to the visible band. Melody mode uses it to give a note
+// a "tone colour" (wlToRGB of this wavelength), so a melody note is coloured the
+// same way a real absorption line at that pitch would be.
+export function freqToWl(freq, p = DEFAULT_PARAMS) {
+  const midi = 69 + 12 * Math.log2(freq / 440);
+  if (!p.pitchSpanSemitones) return (SPEC_MIN + SPEC_MAX) / 2;
+  const wl = SPEC_MIN + ((p.pitchHighMidi - midi) / p.pitchSpanSemitones) * (SPEC_MAX - SPEC_MIN);
+  return Math.max(SPEC_MIN, Math.min(SPEC_MAX, wl));
+}
