@@ -50,7 +50,7 @@ const mono = "'IBM Plex Mono', 'Menlo', monospace";
 const S = {
   wrap: { display: "flex", flexDirection: "column", gap: 4 },
   row: {
-    display: "flex", alignItems: "center", gap: 6,
+    display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6,
     background: "rgba(10,12,20,0.82)",
     border: "1px solid rgba(100,110,135,0.45)",
     borderRadius: 3, padding: "3px 6px",
@@ -60,7 +60,7 @@ const S = {
   select: {
     background: "rgba(20,24,36,0.9)", color: "rgba(220,226,240,0.95)",
     border: "1px solid rgba(100,110,135,0.45)", borderRadius: 2,
-    fontFamily: mono, fontSize: 10, padding: "2px 4px", maxWidth: 170,
+    fontFamily: mono, fontSize: 10, padding: "2px 4px", maxWidth: 170, minWidth: 0, flexShrink: 1,
   },
   button: (on, disabled) => ({
     background: on ? "rgba(120,150,200,0.18)" : "transparent",

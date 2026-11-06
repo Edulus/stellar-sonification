@@ -21,6 +21,22 @@ import { ALL_SITES } from "../data/locations.js";
 // sonification live; the Spectrum panel (bottom) visualizes and lets you click
 // individual lines.
 
+const WIDE_HUD_MIN_PX = 1440;
+
+/** True while the viewport is at least `px` wide (tracks resizes/rotation). */
+function useMinWidth(px) {
+  const query = `(min-width: ${px}px)`;
+  const [match, setMatch] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return match;
+}
+
 export default function App() {
   const engineRef = useRef(null);
   const resolverRef = useRef(null);
@@ -327,6 +343,11 @@ export default function App() {
     setMelodyPlaying(false);
   }, []);
 
+  // The centred hint only fits beside the top-left buttons on wide screens
+  // (~460 px of hint centred against ~470 px of buttons → needs ≥ 1440 px).
+  const wideHud = useMinWidth(WIDE_HUD_MIN_PX);
+  const hintText = hoverEnabled ? "Hover a star to hear it sing" : "Click a star for its spectrum · ▶ to hear it sing";
+
   const handleParamChange = useCallback((patch) => {
     engineRef.current.setParams(patch);
     setParams((prev) => ({ ...prev, ...patch }));
@@ -349,16 +370,24 @@ export default function App() {
 
       <RingOverlay engine={engineRef.current} />
 
-      <div style={styles.topLeftBar}>
-        <LocationPicker location={location} onSelect={handleLocationSelect} />
-        <GroundToggle visible={groundVisible} onToggle={handleGroundToggle} />
-        <TimeControl bridge={bridgeReady ? bridgeRef.current : null} />
-      </div>
+      {/* Top-left HUD: one column that flows on any width. Row 1 (site, ground,
+          clock) wraps on phones; melody gets its own row below; the hint joins
+          the column when there is no room to centre it clear of the buttons. */}
+      <div style={styles.hudLeft}>
+        <div style={styles.topLeftBar}>
+          {/* Stacking wrappers: when the row wraps, the clock button lands under
+              the site picker, so the picker (and its drawer) must sit higher. */}
+          <div style={styles.layerTop}>
+            <LocationPicker location={location} onSelect={handleLocationSelect} />
+          </div>
+          <GroundToggle visible={groundVisible} onToggle={handleGroundToggle} />
+          <div style={styles.layerMid}>
+            <TimeControl bridge={bridgeReady ? bridgeRef.current : null} />
+          </div>
+        </div>
 
-      {/* Melody mode gets its own row: on the top row it collides with the
-          centred hint on typical widths. */}
-      <div style={styles.melodyBar}>
-        <MelodyControl
+        <div style={styles.melodyBar}>
+          <MelodyControl
           disabled={!bridgeReady}
           presetIndex={melodyPreset}
           onPresetChange={setMelodyPreset}
@@ -367,15 +396,18 @@ export default function App() {
           playing={melodyPlaying}
           onPlay={handleMelodyPlay}
           onStop={handleMelodyStop}
-          status={melodyStatus}
-        />
+            status={melodyStatus}
+          />
+        </div>
+
+        {!wideHud && <div style={styles.hintInline}>{hintText}</div>}
       </div>
 
-      <div style={styles.hud}>
-        <div style={styles.hint}>
-          {hoverEnabled ? "Hover a star to hear it sing" : "Click a star for its spectrum · ▶ to hear it sing"}
+      {wideHud && (
+        <div style={styles.hud}>
+          <div style={styles.hint}>{hintText}</div>
         </div>
-      </div>
+      )}
 
       {/* Hover readout, pinned beside whatever the cursor is over. The ♪ marks a
           star that is currently singing (hover audio), so the old standalone
@@ -423,20 +455,43 @@ export default function App() {
 }
 
 const styles = {
-  topLeftBar: {
+  hudLeft: {
     position: "fixed",
     top: 16,
     left: 16,
+    right: 44, // stay clear of the SYNTH edge tab (26 px) on narrow screens
     zIndex: 20,
     display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 8,
+    pointerEvents: "none", // the column's empty area must not block the sky
+  },
+  topLeftBar: {
+    position: "relative",
+    zIndex: 2, // above the melody row, so the site/clock drawers open over it
+    display: "flex",
+    flexWrap: "wrap", // phones: the clock button drops to a second line
     alignItems: "flex-start", // the drawer opening below LocationPicker must not push GroundToggle down
     gap: 8,
+    pointerEvents: "auto",
   },
+  layerTop: { position: "relative", zIndex: 3 },
+  layerMid: { position: "relative", zIndex: 2 },
   melodyBar: {
-    position: "fixed",
-    top: 52,
-    left: 16,
-    zIndex: 19, // below topLeftBar (20) so its drop-down drawers open over this row
+    position: "relative",
+    zIndex: 1,
+    maxWidth: "100%",
+    pointerEvents: "auto",
+  },
+  hintInline: {
+    fontFamily: "'IBM Plex Mono', 'Menlo', monospace",
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: "rgba(225,232,245,0.8)",
+    textTransform: "uppercase",
+    textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.85), 0 0 14px rgba(0,0,0,0.6)",
+    paddingLeft: 2,
   },
   hud: {
     position: "fixed",
