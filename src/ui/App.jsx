@@ -302,10 +302,13 @@ export default function App() {
 
     const preset = MELODY_PRESETS[melodyPreset];
     const n = distinctPitches(preset).length;
-    // Already brightest-first; only the N brightest can be assigned, so only
-    // those need resolving (every star resolves — tier 4 is a catch-all).
-    const visible = bridge.listVisibleStars({ aboveHorizonOnly: groundVisibleRef.current });
-    const candidates = visible.slice(0, n).map((s, i) => {
+    // The N brightest stars the engine is actually drawing (on screen is not
+    // enough at wide FOV — MELODY-FINDINGS §8-B). Only those N can be assigned,
+    // so only they are resolved (every star resolves: tier 4 is a catch-all).
+    const visible = bridge.listVisibleStars({
+      aboveHorizonOnly: groundVisibleRef.current, drawnOnly: true, limit: n,
+    });
+    const candidates = visible.map((s, i) => {
       const r = resolverRef.current.resolve(s);
       return {
         key: `melody:${s.name ?? (s.hip != null ? `HIP ${s.hip}` : i)}`,
@@ -316,7 +319,7 @@ export default function App() {
     });
     const assignment = assignStars(candidates, preset);
     if (!assignment.stars.length) {
-      window.__melody = { preset: preset.name, honest: melodyHonest, visible: 0, assignment, plan: null, drift: null };
+      window.__melody = { preset: preset.name, honest: melodyHonest, visible: visible.onScreen ?? 0, drawn: 0, assignment, plan: null, drift: null };
       console.warn(`[melody] no stars in view for ${assignment.needed} pitches`);
       setMelodyStatus({ text: "No stars in view", warn: true });
       return;
@@ -326,7 +329,7 @@ export default function App() {
     if (assignment.fallback) {
       console.warn(`[melody] ${assignment.available} stars for ${assignment.needed} pitches — cycling in temperature order`);
     }
-    window.__melody = { preset: preset.name, honest: melodyHonest, visible: visible.length, assignment, plan, drift };
+    window.__melody = { preset: preset.name, honest: melodyHonest, visible: visible.onScreen, drawn: visible.length, assignment, plan, drift };
 
     engine.playMelody(plan, { getPos: (star) => bridge.projectToScreen(star.radecICRF) });
     setMelodyPlaying(true);

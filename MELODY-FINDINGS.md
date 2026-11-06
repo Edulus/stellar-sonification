@@ -228,7 +228,14 @@ depends on FOV and screen size. `core.display_limit_mag` reads 99 and doesn't re
 So on a phone at wide FOV, geometric enumeration includes stars the user cannot see. Taking
 the N brightest usually stays above the cutoff, but not always: Greensleeves needs 12 stars,
 and on a phone at 90° only stars brighter than about magnitude 2.3 are drawn.
-**Proposal (needs a decision):** count a star as visible only if, in addition, the picker
+**Decision (accepted 2026-11-06, implemented):** count a star as visible only if, in addition, the picker
 returns it at its projected pixel. That costs one picker call per candidate, checked
 brightest-first until N are found. The engine already has `getObjAt` and nothing changes
-there. The `listVisibleStars()` already on this branch does **not** make this check.
+there. Implemented as `listVisibleStars({ drawnOnly: true, limit: N })`, which the melody's
+▶ uses. `verify:melody-live` now checks that every assigned star is drawn, including a
+390×844 sweep at 120°/90°/60°/30° with Greensleeves: 12/12 stars assigned and 12/12 drawn
+in every view (faintest assigned m 1.8 at 120°, m 2.9 at 60°).
+
+**Drift item (not fixed, outside scope):** `verify:tooltip`'s "hides on empty sky" step is
+flaky. It failed and then passed on identical code, and it fails the same way with this
+change stashed. It moves the cursor to (3, 3) and assumes that corner is always starless.

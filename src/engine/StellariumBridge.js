@@ -536,14 +536,23 @@ export class StellariumBridge {
    *
    * Enumerates with `_module_list_objs2` (the engine's own `listObjs()` returns
    * at most one object — PHASE0 §11-B) and snapshots the pointers before any
-   * SweObj is constructed. The list is the whole loaded catalog, not the view,
-   * so the view filter is ours: in front of the camera and inside the canvas,
-   * plus above the horizon when `aboveHorizonOnly` (GROUND on).
+   * SweObj is constructed. The list is every star in the tiles loaded so far,
+   * not the view, so the view filter is ours: in front of the camera and inside
+   * the canvas, plus above the horizon when `aboveHorizonOnly` (GROUND on).
+   *
+   * `drawnOnly` also requires the engine's picker to return the star at its
+   * projected pixel. On screen is not the same as drawn: at wide FOV the engine
+   * draws only bright stars (on a phone at 90°, nothing fainter than ~mag 2.3 —
+   * MELODY-FINDINGS §8-B), and `core.display_limit_mag` does not report that
+   * cutoff. Checked brightest-first; with `limit` the scan stops once that many
+   * drawn stars are found, so the cost is a few picker calls per kept star.
    *
    * Each entry is `extractStarData()` minus the raw handle, plus `x`, `y` (CSS
    * px) and `radecICRF` (copied, so it can be re-projected later for tracking).
+   * The returned array also carries `onScreen`: how many stars passed the
+   * geometric filter before `drawnOnly` / `limit` were applied.
    */
-  listVisibleStars({ maxMag = 7, aboveHorizonOnly = false } = {}) {
+  listVisibleStars({ maxMag = 7, aboveHorizonOnly = false, drawnOnly = false, limit = Infinity } = {}) {
     const stel = this.stel;
     if (!stel?._module_list_objs2 || !stel.addFunction) return [];
     const core = stel.core, obs = core.observer;
@@ -557,13 +566,15 @@ export class StellariumBridge {
     }
     const snapshot = ptrs.slice(); // before any `new SweObj` (it clobbers g_ret)
 
-    const out = [];
+    // Pass 1 (cheap, every star): position + magnitude only.
+    const geo = [];
     for (const p of snapshot) {
       let obj;
       try { obj = new stel.SweObj(p); } catch { continue; }
-      let icrf = null;
+      let icrf = null, mag = null;
       try { icrf = obj.getInfo("radec"); } catch { /* */ }
-      if (!icrf) continue;
+      try { mag = obj.getInfo("vmag"); } catch { /* */ }
+      if (!icrf || mag == null) continue;
       icrf = [icrf[0], icrf[1], icrf[2], icrf[3] ?? 0];
       const pos = this.projectToScreen(icrf);
       if (!pos || pos.x < 0 || pos.y < 0 || pos.x >= W || pos.y >= H) continue;
@@ -572,13 +583,43 @@ export class StellariumBridge {
         try { alt = stel.c2s(stel.convertFrame(obs, "ICRF", "OBSERVED", icrf))[1]; } catch { /* */ }
         if (alt == null || alt <= 0) continue;
       }
-      const data = this.extractStarData(obj);
-      delete data._obj;
-      if (data.magnitude == null) continue;
-      out.push({ ...data, radecICRF: icrf, x: pos.x, y: pos.y });
+      geo.push({ p, obj, icrf, pos, mag });
     }
-    out.sort((a, b) => a.magnitude - b.magnitude);
+    geo.sort((a, b) => a.mag - b.mag);
+
+    // Pass 2 (brightest-first, stops at `limit`): drawn check + full data.
+    const out = [];
+    for (const g of geo) {
+      if (out.length >= limit) break;
+      if (drawnOnly && !this._isDrawnAt(g.p, g.pos.x, g.pos.y)) continue;
+      const data = this.extractStarData(g.obj);
+      delete data._obj;
+      out.push({ ...data, magnitude: data.magnitude ?? g.mag, radecICRF: g.icrf, x: g.pos.x, y: g.pos.y });
+    }
+    out.onScreen = geo.length;
     return out;
+  }
+
+  /**
+   * True if the engine's picker returns the star `ptr` at or near (x, y). The
+   * list and the picker hand out the same pointers for a star (MELODY-FINDINGS
+   * §1). A small neighbourhood is searched because a brighter neighbour can win
+   * the exact pixel.
+   */
+  _isDrawnAt(ptr, x, y) {
+    const pick = (px, py, r) => {
+      let q = 0;
+      try { q = this.stel.ccall("core_get_obj_at", "number", ["number", "number", "number"], [px, py, r]); } catch { q = 0; }
+      if (q) { try { this.stel._obj_release(q); } catch { /* */ } }
+      return q === ptr;
+    };
+    if (pick(x, y, 3)) return true;
+    for (let dy = -4; dy <= 4; dy += 2) {
+      for (let dx = -4; dx <= 4; dx += 2) {
+        if ((dx || dy) && pick(x + dx, y + dy, 2)) return true;
+      }
+    }
+    return false;
   }
 
   /** Normalize a selected SweObj into a plain data object (see PHASE0-FINDINGS.md §8). */

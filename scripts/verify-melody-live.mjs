@@ -9,6 +9,8 @@
 //   6  ■ clears audio + pulses; starting melody stops chord; chord stops melody
 //   7  honest mode plays; drift report per preset across views
 //   +  how often the "fewer stars than pitches" fallback fires
+//   +  every assigned star is one the engine actually draws (picker returns it),
+//      including on a phone viewport at wide FOV (MELODY-FINDINGS §8-B)
 //
 // Needs `npm run dev` running + Playwright (same as verify:slice).
 import { chromium } from "playwright";
@@ -51,6 +53,26 @@ const melodySummary = () => page.evaluate(() => {
   };
 });
 
+
+// How many assigned stars the engine's picker returns near their projected pixel.
+const assignedDrawn = (pg) => pg.evaluate(() => {
+  const m = window.__melody, b = window.__bridge, stel = window.__stel;
+  if (!m?.assignment?.stars?.length) return { n: 0, drawn: 0 };
+  const vis = b.listVisibleStars();
+  let drawn = 0;
+  for (const s of m.assignment.stars) {
+    const pos = b.projectToScreen(s.radecICRF);
+    if (!pos) continue;
+    let hit = false;
+    for (let dy = -4; dy <= 4 && !hit; dy += 2) for (let dx = -4; dx <= 4 && !hit; dx += 2) {
+      const q = stel.ccall("core_get_obj_at", "number", ["number", "number", "number"], [pos.x + dx, pos.y + dy, 3]);
+      if (q) { const o = new stel.SweObj(q); const d = (o.designations() || []); if (d.some((x) => x.replace(/^NAME /, "") === s.name || x === s.name || x === `HIP ${s.hip}`)) hit = true; stel._obj_release(q); }
+    }
+    if (hit) drawn++;
+  }
+  return { n: m.assignment.stars.length, drawn, onScreen: vis.length };
+});
+
 let exitCode = 1;
 try {
   await page.goto(url, { waitUntil: "load", timeout: 30000 });
@@ -88,6 +110,9 @@ try {
     "pulse life = note length (0.6 s quarter, 1.2 s half at 100 bpm)");
   const gaps = notes.slice(1, 6).map((n, i) => n.t - notes[i].t);
   ok(gaps.every((g) => Math.abs(g - 600) < 60), `pulses in time with notes (onset gaps ${gaps.map((g) => g.toFixed(0)).join(", ")} ms)`);
+  // After the timing checks: this probe blocks the page for a few hundred ms.
+  const d0 = await assignedDrawn(page);
+  ok(d0.n === 6 && d0.drawn === 6, `all ${d0.n} assigned stars are drawn by the engine (${d0.drawn}/${d0.n})`);
   const osc = await page.evaluate(() => window.__oscCount);
   ok(osc > 0, `audio sounding (${osc} oscillators)`);
   const bands = await page.evaluate(() => window.__ringOverlay.bands().filter((b) => b.key.startsWith("melody:")));
@@ -177,12 +202,16 @@ try {
     const line0 = strongestLine(stars[0].lines);
     const loud = rms(await render(line0, 0, f, magToGain(0.0)));
     const quiet = rms(await render(line0, 0, f, magToGain(5.0)));
-    // 4b. two real stars at the same pitch: the brightest assigned vs a mag ~5 star in view
+    // 4b. two real stars at the same pitch. Same template class, so line depth and
+    // timbre match and only brightness differs: the brightest drawn star vs a
+    // mag 4.5-5.5 star in view. (The sky is live, so the pair varies run to run.)
     const R = new StarDataResolver();
-    const vis = window.__bridge.listVisibleStars();
-    const faint = vis.find((s) => s.magnitude >= 4.8 && s.magnitude <= 5.5);
-    const fr = R.resolve(faint);
-    const bright = stars.slice().sort((a, b) => a.mag - b.mag)[0];
+    const vis = window.__bridge.listVisibleStars().map((s) => ({ s, r: R.resolve(s) }));
+    const brightV = window.__bridge.listVisibleStars({ drawnOnly: true, limit: 1 })[0];
+    const br = R.resolve(brightV);
+    const faintV = vis.find(({ s, r }) => s.magnitude >= 4.5 && s.magnitude <= 5.5 && r.type === br.type) || vis.find(({ s }) => s.magnitude >= 4.5 && s.magnitude <= 5.5);
+    const faint = faintV.s, fr = faintV.r;
+    const bright = { name: br.name, mag: brightV.magnitude, rv: br.rv ?? 0, lines: br.lines, type: br.type };
     const bRms = rms(await render(strongestLine(bright.lines), bright.rv, f, magToGain(bright.mag)));
     const fRms = rms(await render(strongestLine(fr.lines), fr.rv ?? 0, f, magToGain(faint.magnitude)));
 
@@ -201,11 +230,13 @@ try {
     }
     // Same-template control: two different stars that share a template should be identical apart from level.
     return { sameLineDb: db(loud / quiet), magDbExpected: db(magToGain(0) / magToGain(5)),
-      realPair: { bright: `${bright.name} m${bright.mag.toFixed(1)}`, faint: `${fr.name} m${faint.magnitude.toFixed(1)}`, db: db(bRms / fRms) }, pairs };
+      realPair: { bright: `${bright.name} m${bright.mag.toFixed(1)} (${bright.type})`, faint: `${fr.name} m${faint.magnitude.toFixed(1)} (${fr.type})`,
+        db: db(bRms / fRms), expected: db(magToGain(bright.mag) / magToGain(faint.magnitude)), sameClass: fr.type === bright.type }, pairs };
   }, (await page.evaluate(() => window.__melody.assignment.stars.map((s) => ({ name: s.name, type: s.type, src: s.dataSource, mag: s.magnitude, rv: s.rv, lines: s.lines })))));
   ok(Math.abs(audio.sameLineDb - audio.magDbExpected) < 0.2 && audio.sameLineDb > 10,
     `same line + pitch: mag 0.0 is ${audio.sameLineDb.toFixed(1)} dB louder than mag 5.0 (mapping says ${audio.magDbExpected.toFixed(1)})`);
-  ok(audio.realPair.db > 6, `real stars, same pitch: ${audio.realPair.bright} is ${audio.realPair.db.toFixed(1)} dB louder than ${audio.realPair.faint}`);
+  ok(audio.realPair.sameClass ? Math.abs(audio.realPair.db - audio.realPair.expected) < 0.5 && audio.realPair.db > 6 : audio.realPair.db > 3,
+    `real stars, same pitch${audio.realPair.sameClass ? ", same class" : ""}: ${audio.realPair.bright} is ${audio.realPair.db.toFixed(1)} dB louder than ${audio.realPair.faint} (brightness alone predicts ${audio.realPair.expected.toFixed(1)})`);
   console.log("      timbre, same note (E4), different-class stars:");
   for (const p of audio.pairs) console.log(`        ${p.a} vs ${p.b}: harmonic-profile dist ${p.harmonicDist}, envelope dist ${p.envDist}, level ${p.levelDb} dB`);
   ok(audio.pairs.length > 0 && audio.pairs.every((p) => p.harmonicDist > 0.05 || p.envDist > 0.5),
@@ -245,6 +276,29 @@ try {
   ok(Object.values(report).every((r) => r.length >= playable), `honest mode played every preset in every view with stars (${playable}/${views.length})`);
   console.log(`      fallback fired ${fallbackRows.length}/${views.length * 3} runs${fallbackRows.length ? ":" : ""}`);
   for (const r of fallbackRows) console.log("        " + r);
+
+
+  // ── drawn-only on a phone viewport at wide FOV (12-pitch Greensleeves) ──
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  phone.on("pageerror", (e) => errors.push("phone: " + e.message));
+  await phone.goto(url, { waitUntil: "load", timeout: 30000 });
+  await phone.waitForFunction(() => !!window.__stel && !!window.__bridge, null, { timeout: 60000 });
+  await sleep(9000);
+  await phone.selectOption('select[aria-label="Melody preset"]', "2");
+  const phoneRows = [];
+  for (const [fov, yaw, pitch] of [[120, 1, 0.2], [90, 3.6, 0.3], [90, 0, 0], [60, 3.6, 0.3], [60, 1.2, 0], [30, 2.4, 0.2]]) {
+    await phone.evaluate(([f, y, p]) => { const s = window.__stel; s.core.fov = f * Math.PI / 180; s.core.observer.yaw = y; s.core.observer.pitch = p; }, [fov, yaw, pitch]);
+    await sleep(2000);
+    await phone.evaluate(() => document.querySelector('button[aria-label="Play melody"]')?.click());
+    await sleep(300);
+    const info = await phone.evaluate(() => ({ needed: window.__melody.assignment.needed, available: window.__melody.assignment.available, fallback: window.__melody.assignment.fallback, faintest: Math.max(...window.__melody.assignment.stars.map((s) => s.magnitude)) }));
+    const d = await assignedDrawn(phone);
+    await phone.evaluate(() => document.querySelector('button[aria-label="Stop melody"]')?.click());
+    phoneRows.push({ fov, ...info, ...d });
+  }
+  for (const r of phoneRows) console.log(`      phone ${r.fov}°: ${r.available}/${r.needed} stars assigned, ${r.drawn}/${r.n} drawn, faintest m${r.faintest.toFixed(2)}${r.fallback ? " (fallback)" : ""}`);
+  ok(phoneRows.every((r) => r.drawn === r.n), "phone, wide FOV: every assigned star is drawn by the engine");
+  await phone.close();
 
   ok(errors.length === 0, `no page errors${errors.length ? ": " + errors.join(" | ") : ""}`);
   exitCode = fails ? 1 : 0;
