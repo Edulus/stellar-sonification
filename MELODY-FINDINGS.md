@@ -196,3 +196,39 @@ Greensleeves' 12 pitches included.
   panel), not a hard-coded 1.2 s. That keeps the default path identical to before.
 - `magToGain` reads its three constants from `DEFAULT_PARAMS` (`magBright`, `magFaint`,
   `magFaintDb`), following the `p` convention. They are not exposed in the Synth panel.
+
+## 8. Gate 1 re-run (2026-11-06): two corrections
+
+I re-ran in a fresh container (same engine artifacts, headless Chromium, 1400×900 and
+390×844, FOV 10°–120°). Enumeration, data coverage and the projection formula all hold.
+Two findings above need correcting.
+
+**8-A. The enumerated list grows; it is not fixed at ~5,200.** `_module_list_objs2`
+returns every star in the tiles loaded *so far*. That was 5,410 at first, then 12,000–13,900
+after a few pans as the Norder1 tiles streamed in. §2's "not view-limited" still holds, and
+the on-screen filter is still ours. Costs are unchanged: enumeration takes 1–12 ms, and
+harvesting, projecting and resolving every on-screen star takes 50–170 ms.
+
+**8-B. "On screen" is not the same as "drawn."** The projection is exact wherever the picker
+can return the star (offset 0–2 px). But at wide FOV the engine draws only bright stars, and
+the picker cannot return the rest from any pixel. Their projected positions are right; the
+engine just isn't drawing those stars, or draws them too dimly to be picked. The cutoff
+depends on FOV and screen size. `core.display_limit_mag` reads 99 and doesn't reflect it.
+
+| viewport | FOV | faintest pickable | brightest unpickable |
+|---|---|---|---|
+| 390×844 | 120° | 2.25 | 2.27 |
+| 390×844 | 90° | 2.23 | 2.39 |
+| 390×844 | 60° | 3.00 | 2.84 |
+| 390×844 | 30° | 4.75 | 4.81 |
+| 390×844 | 10° | 6.97 | none |
+| 1400×900 | 90° | 3.55 | 2.75 |
+| 1400×900 | 60° | 4.31 | none |
+
+So on a phone at wide FOV, geometric enumeration includes stars the user cannot see. Taking
+the N brightest usually stays above the cutoff, but not always: Greensleeves needs 12 stars,
+and on a phone at 90° only stars brighter than about magnitude 2.3 are drawn.
+**Proposal (needs a decision):** count a star as visible only if, in addition, the picker
+returns it at its projected pixel. That costs one picker call per candidate, checked
+brightest-first until N are found. The engine already has `getObjAt` and nothing changes
+there. The `listVisibleStars()` already on this branch does **not** make this check.
