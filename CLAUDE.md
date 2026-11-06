@@ -17,6 +17,9 @@ npm run verify:engine    # Playwright: loads the live engine, selects Sirius, ch
                          #   (needs `npm run dev` running + `npx playwright install chromium`)
 npm run verify:extract   # unit: StellariumBridge.extractStarData on a synthetic populated star (no browser)
 npm run verify:seed      # unit: SEED composer — determinism, in-key, no clustered voicings (no browser)
+npm run verify:melody    # unit: melody presets, star assignment, honest mode, magToGain, envelope fit (no browser)
+npm run verify:melody-live  # browser: melody assignment, pulses, stop, chord exclusivity, loudness/timbre
+                         #   renders, honest-mode drift + fallback sweep (needs `npm run dev` + Playwright)
 npm run verify:slice     # browser: silent selection, ▶ play-on-demand, curated/template badges
                          #   (needs `npm run dev` running + Playwright)
 npm run verify:tooltip   # browser: hover readout on a star AND a non-star, edge-flip, hide-on-leave
@@ -27,7 +30,7 @@ npm run verify:sky       # browser: ground toggle, live/custom clock, and that b
 npm run verify:phoenix   # Python/browser-free: PHOENIX extraction helpers + NIST log(gf) path
 ```
 
-There is no lint step and no general test runner. The JavaScript `verify:*` scripts in `scripts/` are plain Node `.mjs` files; `verify:phoenix` runs `data-pipeline/verify_phoenix.py`. Playwright is not a declared dependency — it must be installed in the environment for the browser verifiers. `verify:extract`, `verify:seed`, and `verify:phoenix` are browser-free; `verify:engine`, `verify:slice`, `verify:tooltip` and `verify:sky` need `npm run dev` running first.
+There is no lint step and no general test runner. The JavaScript `verify:*` scripts in `scripts/` are plain Node `.mjs` files; `verify:phoenix` runs `data-pipeline/verify_phoenix.py`. Playwright is not a declared dependency — it must be installed in the environment for the browser verifiers (the scripts `import "playwright"` as ESM, which ignores `NODE_PATH`; with a global install, symlink it into the git-ignored `node_modules/`). `verify:extract`, `verify:seed`, `verify:melody` and `verify:phoenix` are browser-free; `verify:engine`, `verify:slice`, `verify:tooltip`, `verify:sky` and `verify:melody-live` need `npm run dev` running first.
 
 ## The engine must be built before the app runs
 
@@ -52,13 +55,14 @@ Three decoupled layers, wired together in [src/ui/App.jsx](src/ui/App.jsx):
 
 3. **Sonification engine** — [src/audio/SonificationEngine.js](src/audio/SonificationEngine.js) builds a per-line Web Audio graph: oscillator bank (mixed by excitation potential) → biquad lowpass (Q from line width) → ADSR gain (from line profile) → dry + algorithmic reverb buses ([src/audio/reverb.js](src/audio/reverb.js)). The seven spectral→audio mappings are pure functions in [src/audio/mappings.js](src/audio/mappings.js). One voice = one call to `_buildVoice(line, {freq, dur, when, gainScale})`; `playLine` is the monophonic wrapper around it, and everything polyphonic (chord, SEED) calls it directly.
 
-   Three playback modes, all on the same voice graph: **SEQ** (`playSequence`, lines strongest-first), **CHORD** (`playChord`, all lines at once via [harmonize.js](harmonize.js)) and **SEED** (`playSeed` — see below).
+   Three per-star playback modes, all on the same voice graph: **SEQ** (`playSequence`, lines strongest-first), **CHORD** (`playChord`, all lines at once via [harmonize.js](harmonize.js)) and **SEED** (`playSeed` — see below). Plus **Melody mode** (`playMelody`), which plays a preset across many stars — see its section below.
 
 ### Things that bite
 
 - **AudioContext needs a user gesture.** `ensureContext()` is created lazily; App.jsx unlocks it on the first `pointerdown`. Don't construct it earlier.
 - **The canvas belongs to the engine, not React.** [src/ui/SkyCanvas.jsx](src/ui/SkyCanvas.jsx) hands the bare `<canvas>` to the bridge via a ref and never lets React re-render that node. The effect also guards against StrictMode's double-invoke spinning up two engines.
-- **`listObjs()` is broken; enumerate the sky by hand.** The engine's own `module.listObjs(obs, maxMag, filter)` returns **at most one object** no matter what is in view — the `SweObj` constructor clobbers the same `g_ret` global the wrapper's loop is iterating. Call `_module_list_objs2` with your own `addFunction` callback and **snapshot the pointer array before constructing any `SweObj`**; recipe + measured costs in [PHASE0-FINDINGS.md](PHASE0-FINDINGS.md) §11-B. Done right it is cheap: ~5,300 stars enumerated in 2 ms, full data harvest 243 ms. But there is still **no forward RA/Dec→screen projection exported to JS** (§11-C, RING-OVERLAY-FINDINGS §2), so you can get data for thousands of objects and place none of them — screen positions come only from the inverse picker.
+- **`listObjs()` is broken; enumerate the sky by hand.** The engine's own `module.listObjs(obs, maxMag, filter)` returns **at most one object** no matter what is in view — the `SweObj` constructor clobbers the same `g_ret` global the wrapper's loop is iterating. Call `_module_list_objs2` with your own `addFunction` callback and **snapshot the pointer array before constructing any `SweObj`**; recipe + measured costs in [PHASE0-FINDINGS.md](PHASE0-FINDINGS.md) §11-B. `StellariumBridge.listVisibleStars()` does exactly this. The list is the **whole loaded catalog, not the view** — the on-screen filter is ours.
+- **Forward projection is JS, not engine.** The engine exports no RA/Dec→screen projection, so `StellariumBridge.projectToScreen(icrf)` re-derives the default stereographic one from the exported `convertFrame(obs, "ICRF", "VIEW", v)`. **`core.fov` spans the SHORT side of the canvas** (a long-side guess is off everywhere). Validated pixel-exact against the picker across aspect ratios ([MELODY-FINDINGS.md](MELODY-FINDINGS.md) §3). It assumes `PROJ_STEREOGRAPHIC` and no view flips; if either changes it breaks silently. The hover path still uses the inverse picker.
 - **Selection is silent; playback is explicit.** `App.handleStarSelected` opens the spectrum and `stop()`s whatever was sounding, but starts nothing — the panel's ▶ (`handleReplay`) is the only way a click-selected star makes sound, and it flips to ■ while sounding. Switching SEQ↔CHORD is silent too. `scripts/verify-slice.mjs` asserts both halves (0 oscillators on select, >0 after ▶), so don't reintroduce auto-play without updating it. Hover mode is deliberately exempt — hovering still sounds immediately.
 - **`mappings.js` magic numbers are live-tunable.** They live in `DEFAULT_PARAMS`; the Synth Character panel ([src/ui/SynthPanel.jsx](src/ui/SynthPanel.jsx)) edits them and changes apply to the *next* note. Every mapping function takes an optional `p` (params) argument — keep that signature if you add one.
 - **Bundled catalog data is thin — and its ids are split.** `test-skydata` (vmag ≤ 7) carries B–V for every star and **no HD/Gaia ids and no spectral types**. HIP ids *are* present, but only on the stars that have **no** proper or Bayer/Flamsteed name: a star gets either a name (`Capella`, `* alf Aur`, `* 13 Aur`) **or** a bare `HIP 52425`, never both. So the bright stars you would want to resolve by HIP are exactly the ones missing it. Measured on a live view (~5,300 stars to mag 8): ~1,500 named/Bayer, ~3,760 HIP-only, 100% with B–V, 0% with spectral type. In practice bright stars resolve by name (tier 1) and everything else by B–V (tier 3); resolving *bright* stars by HIP needs a richer catalog (the `stellarium_star_catalogs` pipeline).
@@ -119,6 +123,35 @@ what stops the melody hopping sevenths the way the pen's random register does.
 Note `_buildVoice` squeezes the ADSR when a note is shorter than attack+decay+release
 (SEED's eighth notes can be ~0.3 s). At the default 1.2 s tone nothing is clamped, so
 SEQ/CHORD/hover are bit-identical to before.
+
+## Melody mode
+
+Plays a built-in preset ([src/melodies/presets.js](src/melodies/presets.js): Twinkle, Ode to
+Joy, Greensleeves) across the brightest stars in view. The brief and decisions are in
+[MELODY-FINDINGS.md](MELODY-FINDINGS.md). Controls: MELODY row in the top-left HUD
+([src/ui/MelodyControl.jsx](src/ui/MelodyControl.jsx)), wired in `App.handleMelodyPlay`.
+
+- **The melody sets pitch; the star sets timbre** (its strongest-EW line through the normal
+  mappings, RV → detune). **Brightness sets volume**: `magToGain` (mag −1.5 → 0 dB, 6.0 →
+  −18 dB, clamped) is a `gainScale` on top of depth → gain.
+- **Assignment** ([src/melodies/melody.js](src/melodies/melody.js), pure): N distinct pitches →
+  N brightest visible stars → sorted coolest-first → paired low-to-high. Temperature ties
+  (the norm, since template temps are quantized) break by **B–V desc → HIP → name**; bright
+  stars have no HIP in this catalog. Locked at ▶ — panning does not reassign. Fewer stars
+  than pitches cycles them (only happens at ≲ 2° FOV). With GROUND on, below-horizon stars
+  are excluded.
+- **Honest mode**: each note goes to the assigned star with the nearest real line pitch
+  (`wlToFreq`), played at that pitch. Templates share only 17 distinct wavelengths, so exact
+  ties are common and go to the cooler star.
+- **Timing/envelope**: `playMelody` schedules off one audio-clock start (like `playSeed`).
+  Notes use `_buildVoice(…, {envFit: "proportional"})`: A/D/R scale together only when the
+  note is shorter than their sum. `playLine(line, rv, duration)` has the same opt-in; omit
+  `duration` and it is bit-identical to before.
+- **Pulses**: `melodyNote` events → `RingOverlay` draws one band per note in the **star's**
+  colour, living for the note's length, and re-projects the star every frame so pulses
+  follow pans. `stop()` emits `starStopped` per melody star, which clears them.
+- **Exclusivity**: melody calls `stop()` first; anything else that calls `stop()` (CHORD/SEQ/
+  SEED ▶, hover, selecting a star) ends the melody and resets its button via `onMelodyEnd`.
 
 ## Chord mode
 

@@ -11,6 +11,8 @@
     "verify:engine": "node scripts/verify-phase0.mjs",
     "verify:extract": "node scripts/verify-extract.mjs",
     "verify:seed": "node scripts/verify-seed.mjs",
+    "verify:melody": "node scripts/verify-melody.mjs",
+    "verify:melody-live": "node scripts/verify-melody-live.mjs",
     "verify:sky": "node scripts/verify-sky.mjs",
     "verify:slice": "node scripts/verify-slice.mjs",
     "verify:tooltip": "node scripts/verify-tooltip.mjs",

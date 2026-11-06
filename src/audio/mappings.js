@@ -36,6 +36,10 @@ export const DEFAULT_PARAMS = {
   hoverGainScale: 0.7,      // overall gain multiplier for the hover chord
   hoverMaxVoices: 6,        // cap on simultaneous voices (1–6, strongest EW first)
   hoverSpreadDetune: 0,     // Hz to fan voices apart for a chorus effect (0–8)
+  // melody (magToGain) — not exposed in the Synth panel; fixed by the melody brief
+  magBright: -1.5,          // visual magnitude that plays at 0 dB
+  magFaint: 6.0,            // visual magnitude that plays at magFaintDb
+  magFaintDb: -18,          // dB at magFaint (linear in magnitude between, clamped outside)
 };
 
 // Declarative spec for the Synth Character UI (grouped sliders).
@@ -110,4 +114,15 @@ export function rvToDetune(rv, p = DEFAULT_PARAMS) {
 // 7. excitation potential -> harmonic richness (0 = sine, 1 = rich)
 export function epToHarmonics(ep, p = DEFAULT_PARAMS) {
   return Math.min(ep / p.harmonicsEpDivisor, 1);
+}
+
+// 8. visual magnitude -> per-star gain multiplier (melody mode).
+// Linear in magnitude → dB (mag -1.5 → 0 dB, mag 6.0 → -18 dB, clamped outside),
+// then dB → amplitude. Applied on top of depth → gain, never instead of it.
+export function magToGain(mag, p = DEFAULT_PARAMS) {
+  if (mag == null || !Number.isFinite(mag)) return Math.pow(10, p.magFaintDb / 20);
+  const lo = Math.min(p.magBright, p.magFaint), hi = Math.max(p.magBright, p.magFaint);
+  const m = Math.max(lo, Math.min(hi, mag));
+  const db = ((m - p.magBright) / (p.magFaint - p.magBright)) * p.magFaintDb;
+  return Math.pow(10, db / 20);
 }

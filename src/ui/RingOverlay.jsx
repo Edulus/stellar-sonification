@@ -23,6 +23,13 @@ const BAND_STRETCH = 130;     // px/s — thickening as it travels
 const BAND_THICKNESS = 16;    // px   — thickness at birth
 const BAND_FADE = 1.5;        // exponent on the overall fade
 const BAND_PULSE_PERIOD = 0.6; // s — spacing between bands while a chord is held
+const MELODY_PEAK = 0.8;       // melody pulses: fixed peak alpha (colour is the star's, not a line's)
+
+// "#rrggbb" → [r, g, b]; null for anything else.
+function hexToRGB(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ""));
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
+}
 
 export default function RingOverlay({ engine }) {
   const canvasRef = useRef(null);
@@ -121,6 +128,23 @@ export default function RingOverlay({ engine }) {
       sys.fadeDur = fadeDurationSec || 0.001;
     };
 
+    // Melody mode: one band per note, in the star's own display colour, living
+    // exactly as long as the note. `getPos` re-projects the star each frame so
+    // the pulse stays on it while the view pans (MELODY-FINDINGS §3).
+    const onMelodyNote = ({ starKey, color, durationSec, getPos }) => {
+      let sys = systemsRef.current.get(starKey);
+      if (!sys) {
+        sys = { mode: "melody", pos: null, getPos, bands: [], fadeStartT: null, fadeDur: 0 };
+        systemsRef.current.set(starKey, sys);
+      }
+      if (getPos) sys.getPos = getPos;
+      const pos = sys.getPos?.();
+      if (pos) sys.pos = pos;
+      if (!sys.pos) return;
+      sys.bands.push({ born: now(), life: Math.max(0.05, durationSec), rgb: hexToRGB(color) || [255, 255, 255], peak: MELODY_PEAK });
+      ensureRaf();
+    };
+
     const onStopped = ({ starKey }) => {
       systemsRef.current.delete(starKey);
     };
@@ -130,6 +154,7 @@ export default function RingOverlay({ engine }) {
       engine.on("starLineStart", onLineStart),
       engine.on("starFadeStart", onFadeStart),
       engine.on("starStopped", onStopped),
+      engine.on("melodyNote", onMelodyNote),
     ];
 
     function draw() {
@@ -145,6 +170,11 @@ export default function RingOverlay({ engine }) {
       ctx.globalCompositeOperation = "lighter";
 
       systems.forEach((sys) => {
+        if (sys.getPos) {
+          const p = sys.getPos();
+          if (p) sys.pos = p;
+        }
+        if (!sys.pos) return;
         // A sustained chord sheds another pulse only while audio is held. The
         // next pulse is timed from the previous actual emission, so a throttled
         // frame never causes a catch-up burst of wall-clock pulses.
@@ -214,6 +244,7 @@ export default function RingOverlay({ engine }) {
     window.__ringOverlay = {
       isAnimating: () => rafRef.current != null,
       count: () => systemsRef.current.size,
+      bands: () => [...systemsRef.current.entries()].map(([k, s]) => ({ key: k, mode: s.mode, n: s.bands.length, pos: s.pos, rgb: s.bands[0]?.rgb ?? null, life: s.bands[0]?.life ?? null })),
     };
 
     return () => {

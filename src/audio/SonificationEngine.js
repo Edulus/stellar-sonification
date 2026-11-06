@@ -8,8 +8,9 @@
 
 import {
   wlToFreq, depthToGain, widthToQ, profileToEnvelope, ewToReverb,
-  rvToDetune, epToHarmonics, DEFAULT_PARAMS,
+  rvToDetune, epToHarmonics, magToGain, DEFAULT_PARAMS,
 } from "./mappings.js";
+import { fitEnvelope } from "./envelope.js";
 import { createReverbBus } from "./reverb.js";
 import { harmonizeChord, CHORD_TIMING } from "./harmonize.js";
 import { planSong } from "./seededMusic.js";
@@ -23,6 +24,10 @@ export class SonificationEngine {
     this.seedPlan = null; // last SEED arrangement played (key/bpm/measures) — UI readout
     this.onStep = null; // optional (lineIndex|null) callback for UI highlight
     this.onChord = null; // optional (lineIndices[]|null) callback for chord highlight
+    // Melody mode: star keys currently pulsing, visual-onset timers, end callback.
+    this.melodyKeys = new Set();
+    this.melodyPulseTimers = [];
+    this.onMelodyEnd = null; // optional () => void when a melody finishes or is stopped
     this.params = { ...DEFAULT_PARAMS };
 
     // Hover audio is a separate world from the click/sequence path above: a
@@ -81,14 +86,22 @@ export class SonificationEngine {
     this.activeNodes = [];
     this.onStep?.(null);
     this.onChord?.(null);
+    this._endMelody();
   }
 
-  /** Play a single absorption line. Stops any currently sounding line first. */
-  playLine(line, starRV = 0) {
+  /**
+   * Play a single absorption line. Stops any currently sounding line first.
+   * `duration` (seconds) defaults to params.toneDuration (1.2 s), which keeps
+   * the original behaviour bit-identical. An explicit duration shorter than
+   * attack+decay+release scales those three proportionally to fit.
+   */
+  playLine(line, starRV = 0, duration) {
     // stop current oscillators but DON'T clear a running sequence timer.
     this.activeNodes.forEach((n) => { try { n.stop(); } catch { /* */ } });
     this.activeNodes = [];
-    this.activeNodes = this._buildVoice(line, { starRV });
+    this.activeNodes = duration == null
+      ? this._buildVoice(line, { starRV })
+      : this._buildVoice(line, { starRV, dur: duration, envFit: "proportional" });
   }
 
   /**
@@ -103,7 +116,11 @@ export class SonificationEngine {
    * comes from the line's own physics.
    *
    * @param {object} line spectral line
-   * @param {{starRV?:number, freq?:number, dur?:number, when?:number, gainScale?:number}} [o]
+   * `envFit: "proportional"` (melody mode, playLine's explicit duration) swaps
+   * the squeeze below for envelope.fitEnvelope: A, D and R scale together only
+   * when the note is shorter than their sum.
+   *
+   * @param {{starRV?:number, freq?:number, dur?:number, when?:number, gainScale?:number, envFit?:string}} [o]
    * @returns {OscillatorNode[]}
    */
   _buildVoice(line, o = {}) {
@@ -125,10 +142,16 @@ export class SonificationEngine {
     // than attack+decay+release (SEED's eighth notes can be ~0.3 s) would
     // schedule them out of order and click; squeeze the envelope to fit instead.
     // At the default 1.2 s tone nothing is clamped, so click/hover are unchanged.
-    const rel = Math.min(env.r, Math.max(0.02, dur * 0.4));
-    const adFit = Math.min(1, (dur - rel) * 0.9 / Math.max(env.a + env.d, 1e-4));
-    const att = env.a * adFit;
-    const dec = env.d * adFit;
+    let rel, att, dec;
+    if (o.envFit === "proportional") {
+      const fit = fitEnvelope(env, dur);
+      rel = fit.r; att = fit.a; dec = fit.d;
+    } else {
+      rel = Math.min(env.r, Math.max(0.02, dur * 0.4));
+      const adFit = Math.min(1, (dur - rel) * 0.9 / Math.max(env.a + env.d, 1e-4));
+      att = env.a * adFit;
+      dec = env.d * adFit;
+    }
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0, now);
     masterGain.gain.linearRampToValueAtTime(gain, now + att);
@@ -735,6 +758,84 @@ export class SonificationEngine {
     };
     step();
     return plan;
+  }
+
+  /**
+   * Melody mode — render a planned melody (src/melodies/melody.js planMelody)
+   * across several stars. Each event already says which star sings, which of
+   * its lines supplies the timbre, and the frequency to sound; this method only
+   * adds the star's brightness (magToGain, on top of depth → gain) and its RV
+   * detune, then schedules everything off one absolute audio-clock start like
+   * playSeed, so timer jitter cannot make the tune drift.
+   *
+   * Emits `melodyNote` { starKey, color, durationSec, getPos } at each note's
+   * audible onset (the band overlay pulses that star), and `starStopped` for
+   * every star when the melody ends or stop() is called.
+   *
+   * @param {{events:Array, totalSec:number}} plan
+   * @param {{getPos?:(star)=>({x,y}|null)}} [opts]  live screen position per star
+   */
+  playMelody(plan, opts = {}) {
+    this.stop();
+    if (!plan?.events?.length) return;
+    const ctx = this.ensureContext();
+    this._melodyActive = true;
+    const start = ctx.currentTime + 0.12;
+    const events = plan.events;
+    const LOOKAHEAD = 0.05;
+    let i = 0;
+
+    const step = () => {
+      const now = ctx.currentTime;
+      // Schedule every note that starts within the lookahead window.
+      while (i < events.length && start + events[i].t <= now + LOOKAHEAD) {
+        const e = events[i];
+        const when = Math.max(now, start + e.t);
+        const p = this.params;
+        this.activeNodes.push(...this._buildVoice(e.line, {
+          freq: e.freq,
+          dur: e.dur,
+          when,
+          starRV: e.star.rv ?? 0,
+          gainScale: magToGain(e.star.magnitude, p),
+          envFit: "proportional",
+        }));
+        const key = e.star.key;
+        this.melodyKeys.add(key);
+        const timer = setTimeout(() => {
+          this.melodyPulseTimers = this.melodyPulseTimers.filter((x) => x !== timer);
+          this._emit("melodyNote", {
+            starKey: key,
+            color: e.star.color,
+            durationSec: e.dur,
+            getPos: opts.getPos ? () => opts.getPos(e.star) : null,
+          });
+        }, Math.max(0, (when - ctx.currentTime) * 1000));
+        this.melodyPulseTimers.push(timer);
+        i += 1;
+      }
+      this.activeNodes = this.activeNodes.filter((n) => (n._endsAt ?? Infinity) > now);
+      if (i >= events.length) {
+        // Let the last note (and its pulse) finish, then wind down.
+        const endIn = Math.max(0, (start + plan.totalSec - ctx.currentTime) * 1000) + 100;
+        this.seqTimer = setTimeout(() => { this.seqTimer = null; this._endMelody(); }, endIn);
+        return;
+      }
+      const next = start + events[i].t - LOOKAHEAD;
+      this.seqTimer = setTimeout(step, Math.max(0, (next - ctx.currentTime) * 1000));
+    };
+    step();
+  }
+
+  /** Clear melody pulses + timers and notify; safe to call when idle. */
+  _endMelody() {
+    this.melodyPulseTimers.forEach(clearTimeout);
+    this.melodyPulseTimers = [];
+    if (!this.melodyKeys.size && !this._melodyActive) return;
+    this.melodyKeys.forEach((key) => this._emit("starStopped", { starKey: key }));
+    this.melodyKeys.clear();
+    this._melodyActive = false;
+    this.onMelodyEnd?.();
   }
 
   /** Computed audio params for a line — for future UI readout (no audio). */

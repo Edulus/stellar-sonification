@@ -510,6 +510,77 @@ export class StellariumBridge {
     };
   }
 
+  /**
+   * Forward projection ICRF unit vector → canvas CSS px, or null if the point is
+   * behind the camera. The engine exports no `project_to_win` (PHASE0 §11-C), so
+   * this re-derives the default stereographic projection from the exported
+   * `convertFrame(…, "VIEW", …)`: `core.fov` spans the SHORT side of the canvas.
+   * Validated pixel-exact against the picker (MELODY-FINDINGS §3). Assumes
+   * PROJ_STEREOGRAPHIC and no view flips — if either changes, this breaks.
+   */
+  projectToScreen(icrf) {
+    const stel = this.stel;
+    if (!stel || !icrf) return null;
+    let v;
+    try { v = stel.convertFrame(stel.core.observer, "ICRF", "VIEW", icrf); } catch { return null; }
+    if (!v || v[2] >= 0) return null;
+    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+    const n = Math.hypot(v[0], v[1], v[2]);
+    const h = 0.5 * (n - v[2]);
+    const k = (Math.min(W, H) / 2) / (2 * Math.tan(stel.core.fov / 4));
+    return { x: W / 2 + (k * v[0]) / h, y: H / 2 - (k * v[1]) / h };
+  }
+
+  /**
+   * Every star currently on screen, brightest first.
+   *
+   * Enumerates with `_module_list_objs2` (the engine's own `listObjs()` returns
+   * at most one object — PHASE0 §11-B) and snapshots the pointers before any
+   * SweObj is constructed. The list is the whole loaded catalog, not the view,
+   * so the view filter is ours: in front of the camera and inside the canvas,
+   * plus above the horizon when `aboveHorizonOnly` (GROUND on).
+   *
+   * Each entry is `extractStarData()` minus the raw handle, plus `x`, `y` (CSS
+   * px) and `radecICRF` (copied, so it can be re-projected later for tracking).
+   */
+  listVisibleStars({ maxMag = 7, aboveHorizonOnly = false } = {}) {
+    const stel = this.stel;
+    if (!stel?._module_list_objs2 || !stel.addFunction) return [];
+    const core = stel.core, obs = core.observer;
+    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+    const ptrs = [];
+    const cb = stel.addFunction((user, obj) => { ptrs.push(obj); return 0; }, "iii");
+    try {
+      stel._module_list_objs2(core.stars.v, obs.v, maxMag, 0, cb);
+    } finally {
+      try { stel.removeFunction(cb); } catch { /* older glue */ }
+    }
+    const snapshot = ptrs.slice(); // before any `new SweObj` (it clobbers g_ret)
+
+    const out = [];
+    for (const p of snapshot) {
+      let obj;
+      try { obj = new stel.SweObj(p); } catch { continue; }
+      let icrf = null;
+      try { icrf = obj.getInfo("radec"); } catch { /* */ }
+      if (!icrf) continue;
+      icrf = [icrf[0], icrf[1], icrf[2], icrf[3] ?? 0];
+      const pos = this.projectToScreen(icrf);
+      if (!pos || pos.x < 0 || pos.y < 0 || pos.x >= W || pos.y >= H) continue;
+      if (aboveHorizonOnly) {
+        let alt = null;
+        try { alt = stel.c2s(stel.convertFrame(obs, "ICRF", "OBSERVED", icrf))[1]; } catch { /* */ }
+        if (alt == null || alt <= 0) continue;
+      }
+      const data = this.extractStarData(obj);
+      delete data._obj;
+      if (data.magnitude == null) continue;
+      out.push({ ...data, radecICRF: icrf, x: pos.x, y: pos.y });
+    }
+    out.sort((a, b) => a.magnitude - b.magnitude);
+    return out;
+  }
+
   /** Normalize a selected SweObj into a plain data object (see PHASE0-FINDINGS.md §8). */
   extractStarData(obj) {
     let designations = [];

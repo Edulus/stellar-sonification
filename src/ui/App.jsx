@@ -7,6 +7,9 @@ import GroundToggle from "./GroundToggle.jsx";
 import TimeControl from "./TimeControl.jsx";
 import RingOverlay from "./RingOverlay.jsx";
 import ObjectTooltip from "./ObjectTooltip.jsx";
+import MelodyControl from "./MelodyControl.jsx";
+import { MELODY_PRESETS } from "../melodies/presets.js";
+import { assignStars, distinctPitches, planMelody, driftStats } from "../melodies/melody.js";
 import { SonificationEngine } from "../audio/SonificationEngine.js";
 import { StarDataResolver } from "../data/StarDataResolver.js";
 import { DEFAULT_PARAMS } from "../audio/mappings.js";
@@ -58,6 +61,12 @@ export default function App() {
   // Hover *tooltip* — independent of hover audio: pointing at anything in the
   // sky always identifies it, whether or not hover mode is on.
   const [hoverTarget, setHoverTarget] = useState(null);   // {info, x, y, key}
+
+  // Melody mode: a preset played across the brightest stars in view.
+  const [melodyPreset, setMelodyPreset] = useState(0);
+  const [melodyHonest, setMelodyHonest] = useState(false);
+  const [melodyPlaying, setMelodyPlaying] = useState(false);
+  const [melodyStatus, setMelodyStatus] = useState(null); // {text, warn}
   const hoverStarKeyRef = useRef(null); // the one star currently admitted to hover audio
   const hoverPlaybackTypeRef = useRef(null); // actual mode started for that star
 
@@ -134,6 +143,7 @@ export default function App() {
   useEffect(() => {
     engineRef.current.onStep = (idx) => setPlayingIdx(idx);
     engineRef.current.onChord = (idxs) => setChordIndices(idxs);
+    engineRef.current.onMelodyEnd = () => setMelodyPlaying(false);
     // Debug hook (mirrors window.__bridge / __stel in SkyCanvas).
     window.__engine = engineRef.current;
   }, []);
@@ -264,6 +274,59 @@ export default function App() {
     );
   }, [cutHoverAudio, data]);
 
+  // Melody ▶: lock stars to pitches from the current view, then play. Starting
+  // a melody stops any chord / sequence / SEED / hover playback first (stop()).
+  const handleMelodyPlay = useCallback(() => {
+    const bridge = bridgeRef.current;
+    const engine = engineRef.current;
+    if (!bridge) return;
+    cutHoverAudio();
+    engine.stop();
+    engine.ensureContext(); // this click is the user gesture
+
+    const preset = MELODY_PRESETS[melodyPreset];
+    const n = distinctPitches(preset).length;
+    // Already brightest-first; only the N brightest can be assigned, so only
+    // those need resolving (every star resolves — tier 4 is a catch-all).
+    const visible = bridge.listVisibleStars({ aboveHorizonOnly: groundVisibleRef.current });
+    const candidates = visible.slice(0, n).map((s, i) => {
+      const r = resolverRef.current.resolve(s);
+      return {
+        key: `melody:${s.name ?? (s.hip != null ? `HIP ${s.hip}` : i)}`,
+        name: r.name, hip: s.hip, bv: s.bv, magnitude: s.magnitude,
+        temp: r.temp, rv: r.rv ?? 0, color: r.color, lines: r.lines,
+        type: r.type, dataSource: r.dataSource, radecICRF: s.radecICRF,
+      };
+    });
+    const assignment = assignStars(candidates, preset);
+    if (!assignment.stars.length) {
+      window.__melody = { preset: preset.name, honest: melodyHonest, visible: 0, assignment, plan: null, drift: null };
+      console.warn(`[melody] no stars in view for ${assignment.needed} pitches`);
+      setMelodyStatus({ text: "No stars in view", warn: true });
+      return;
+    }
+    const plan = planMelody(preset, assignment, { honest: melodyHonest, params: engine.params });
+    const drift = melodyHonest ? driftStats(plan.events) : null;
+    if (assignment.fallback) {
+      console.warn(`[melody] ${assignment.available} stars for ${assignment.needed} pitches — cycling in temperature order`);
+    }
+    window.__melody = { preset: preset.name, honest: melodyHonest, visible: visible.length, assignment, plan, drift };
+
+    engine.playMelody(plan, { getPos: (star) => bridge.projectToScreen(star.radecICRF) });
+    setMelodyPlaying(true);
+    const base = assignment.fallback
+      ? `Only ${assignment.available} stars for ${assignment.needed} pitches — cycling`
+      : `${assignment.available} stars · coolest ${assignment.stars[0].name} → hottest ${assignment.stars[assignment.stars.length - 1].name}`;
+    const extra = drift ? ` · drift avg ${drift.meanAbs.toFixed(1)} st, max ${drift.maxAbs.toFixed(1)}` : "";
+    setMelodyStatus({ text: base + extra, warn: assignment.fallback });
+  }, [cutHoverAudio, melodyPreset, melodyHonest]);
+
+  // Melody ■: halt audio and clear every pulse (stop() → starStopped per star).
+  const handleMelodyStop = useCallback(() => {
+    engineRef.current.stop();
+    setMelodyPlaying(false);
+  }, []);
+
   const handleParamChange = useCallback((patch) => {
     engineRef.current.setParams(patch);
     setParams((prev) => ({ ...prev, ...patch }));
@@ -290,6 +353,22 @@ export default function App() {
         <LocationPicker location={location} onSelect={handleLocationSelect} />
         <GroundToggle visible={groundVisible} onToggle={handleGroundToggle} />
         <TimeControl bridge={bridgeReady ? bridgeRef.current : null} />
+      </div>
+
+      {/* Melody mode gets its own row: on the top row it collides with the
+          centred hint on typical widths. */}
+      <div style={styles.melodyBar}>
+        <MelodyControl
+          disabled={!bridgeReady}
+          presetIndex={melodyPreset}
+          onPresetChange={setMelodyPreset}
+          honest={melodyHonest}
+          onHonestChange={setMelodyHonest}
+          playing={melodyPlaying}
+          onPlay={handleMelodyPlay}
+          onStop={handleMelodyStop}
+          status={melodyStatus}
+        />
       </div>
 
       <div style={styles.hud}>
@@ -352,6 +431,12 @@ const styles = {
     display: "flex",
     alignItems: "flex-start", // the drawer opening below LocationPicker must not push GroundToggle down
     gap: 8,
+  },
+  melodyBar: {
+    position: "fixed",
+    top: 52,
+    left: 16,
+    zIndex: 19, // below topLeftBar (20) so its drop-down drawers open over this row
   },
   hud: {
     position: "fixed",
