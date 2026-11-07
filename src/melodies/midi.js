@@ -167,20 +167,27 @@ export function midiToMelody(parsed, opts = {}) {
   const pitched = source.filter((n) => !isPercussion(n)).sort((a, b) => a.startTick - b.startTick || b.pitch - a.pitch);
 
   // Single line: highest note per chord (onsets within CHORD_WINDOW of the
-  // chord's first note); each new onset ends the previous note.
+  // chord's first note); each new onset ends the previous note. With
+  // `chords: true` (CHORDS PROTOTYPE) every tone of the chord is kept instead.
   const CHORD_WINDOW = parsed.ppq / 16;
+  const keepChords = !!opts.chords;
   const line = [];
-  let dropped = 0, cut = 0, staggered = 0;
+  let dropped = 0, cut = 0, staggered = 0, chordsKept = 0;
   for (const n of pitched) {
     const prev = line[line.length - 1];
     if (prev && n.startTick - prev.startTick <= CHORD_WINDOW) {
-      dropped++;
       if (n.startTick !== prev.startTick) staggered++;
+      if (keepChords) {
+        if (!prev.tones.includes(n.pitch)) { prev.tones.push(n.pitch); if (prev.tones.length === 2) chordsKept++; }
+        prev.endTick = Math.max(prev.endTick, n.endTick);
+        continue;
+      }
+      dropped++;
       if (n.pitch > prev.pitch) { prev.pitch = n.pitch; prev.endTick = Math.max(prev.endTick, n.endTick); }
       continue;
     }
     if (prev && n.startTick < prev.endTick) { prev.endTick = n.startTick; cut++; }
-    line.push({ ...n });
+    line.push({ ...n, tones: [n.pitch] });
   }
 
   // Tempo: the first tempo sets the bpm; real seconds are re-expressed in its beats.
@@ -201,7 +208,8 @@ export function midiToMelody(parsed, opts = {}) {
     const gap = secToBeats(start - cursor);
     if (gap > GAP_EPS) notes.push({ midi: null, beats: gap });
     else if (gap > 0 && notes.length) notes[notes.length - 1].beats += gap;
-    notes.push({ midi: n.pitch, beats: secToBeats(end - start) });
+    const tones = [...n.tones].sort((a, b) => a - b);
+    notes.push({ midi: keepChords && tones.length > 1 ? tones : n.pitch, beats: secToBeats(end - start) });
     cursor = end;
   }
   // Tidy float noise from the tempo arithmetic (1e-9 beats is inaudible).
@@ -213,7 +221,7 @@ export function midiToMelody(parsed, opts = {}) {
     melody: { name, bpm, notes },
     report: {
       track: chosen, trackName: chosen === "all" ? "All tracks" : (trackName || `Track ${chosen + 1}`),
-      tracksWithNotes: options.length, chordNotesDropped: dropped, staggeredChordNotes: staggered, overlapsCut: cut, tempoChanges,
+      tracksWithNotes: options.length, chordNotesDropped: dropped, chordsKept, staggeredChordNotes: staggered, overlapsCut: cut, tempoChanges,
       smpte: parsed.smpte,
     },
   };

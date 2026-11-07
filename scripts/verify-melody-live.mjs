@@ -320,7 +320,7 @@ try {
     return { value: sel.value, selected: sel.options[sel.selectedIndex]?.textContent, group,
       status: [...document.querySelectorAll("div")].map((d) => d.textContent).find((t) => /^Added "Imported bass line"/.test(t)) || "" };
   });
-  ok(added.ok && added.shift === 24 && ui.selected === "Imported bass line" && ui.group.join() === "Built-in,Imported" && /moved up 2 octaves/.test(ui.status),
+  ok(added.ok && added.shift === 24 && ui.selected === "Imported bass line" && ui.group.join() === "Built-in,Chords (preview),Imported" && /moved up 2 octaves/.test(ui.status),
     `import hook: melody normalized (up 2 octaves), listed under "Imported" and selected; status "${ui.status}"`);
   await click("Play melody"); await sleep(400);
   const im = await melodySummary();

@@ -17,9 +17,11 @@ import { useRef } from "react";
 export default function MelodyControl({
   disabled, melodies, presetCount, presetIndex, onPresetChange, honest, onHonestChange, playing, onPlay, onStop, status,
   onImportMidi, trackOptions, track, onTrackChange,
+  chordSampleStart = presetCount, midiChords, onMidiChordsChange,
 }) {
   const fileRef = useRef(null);
-  const presets = melodies.slice(0, presetCount);
+  const presets = melodies.slice(0, chordSampleStart);
+  const samples = melodies.slice(chordSampleStart, presetCount); // CHORDS PROTOTYPE
   const imported = melodies.slice(presetCount);
   return (
     <div style={S.wrap}>
@@ -31,14 +33,21 @@ export default function MelodyControl({
           style={S.select}
           aria-label="Melody preset"
         >
-          {imported.length ? (
+          {imported.length || samples.length ? (
             <>
               <optgroup label="Built-in">
                 {presets.map((p, i) => <option key={`p${i}`} value={i}>{p.name}</option>)}
               </optgroup>
-              <optgroup label="Imported">
-                {imported.map((p, i) => <option key={`u${i}`} value={presetCount + i}>{p.name}</option>)}
-              </optgroup>
+              {samples.length > 0 && (
+                <optgroup label="Chords (preview)">
+                  {samples.map((p, i) => <option key={`c${i}`} value={chordSampleStart + i}>{p.name}</option>)}
+                </optgroup>
+              )}
+              {imported.length > 0 && (
+                <optgroup label="Imported">
+                  {imported.map((p, i) => <option key={`u${i}`} value={presetCount + i}>{p.name}</option>)}
+                </optgroup>
+              )}
             </>
           ) : (
             presets.map((p, i) => <option key={`p${i}`} value={i}>{p.name}</option>)
@@ -69,6 +78,17 @@ export default function MelodyControl({
         >
           + MIDI
         </button>
+        {onMidiChordsChange && (
+          <button
+            onClick={() => onMidiChordsChange(!midiChords)}
+            style={S.button(midiChords, false)}
+            title="MIDI imports: keep whole chords (each tone on its own star) instead of only the top note"
+            aria-pressed={midiChords}
+            aria-label="Keep chords from MIDI"
+          >
+            CHORDS <span style={S.state}>{midiChords ? "ON" : "OFF"}</span>
+          </button>
+        )}
         <input
           ref={fileRef}
           type="file"

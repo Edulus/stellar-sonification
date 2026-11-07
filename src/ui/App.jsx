@@ -9,7 +9,7 @@ import RingOverlay from "./RingOverlay.jsx";
 import ObjectTooltip from "./ObjectTooltip.jsx";
 import MelodyControl from "./MelodyControl.jsx";
 import useMinWidth from "./useMinWidth.js";
-import { MELODY_PRESETS } from "../melodies/presets.js";
+import { MELODY_PRESETS, CHORD_SAMPLES } from "../melodies/presets.js";
 import { normalizeMelody, describeNormalization } from "../melodies/normalize.js";
 import { parseMidi, midiTrackOptions, midiToMelody } from "../melodies/midi.js";
 import { unwrapMidi, CONTAINER_LIMITS } from "../melodies/container.js";
@@ -76,8 +76,14 @@ export default function App() {
   // Entries: { melody, midi? } — `midi` keeps the parsed file so the voice
   // (track) can be re-picked without re-uploading.
   const [userMelodies, setUserMelodies] = useState([]);
-  const melodies = useMemo(() => [...MELODY_PRESETS, ...userMelodies.map((e) => e.melody)], [userMelodies]);
-  const selectedImport = melodyPreset >= MELODY_PRESETS.length ? userMelodies[melodyPreset - MELODY_PRESETS.length] : null;
+  // CHORDS PROTOTYPE: chord samples sit between the presets and the imports.
+  const BUILTIN_COUNT = MELODY_PRESETS.length + CHORD_SAMPLES.length;
+  const melodies = useMemo(() => [...MELODY_PRESETS, ...CHORD_SAMPLES, ...userMelodies.map((e) => e.melody)], [userMelodies]);
+  const selectedImport = melodyPreset >= BUILTIN_COUNT ? userMelodies[melodyPreset - BUILTIN_COUNT] : null;
+  // CHORDS PROTOTYPE: keep whole chords from MIDI files instead of the top note.
+  const [midiChords, setMidiChords] = useState(false);
+  const midiChordsRef = useRef(midiChords);
+  useEffect(() => { midiChordsRef.current = midiChords; }, [midiChords]);
   const [melodyHonest, setMelodyHonest] = useState(false);
   const [melodyPlaying, setMelodyPlaying] = useState(false);
   const [melodyStatus, setMelodyStatus] = useState(null); // {text, warn}
@@ -349,6 +355,7 @@ export default function App() {
       : "";
     const extras = [];
     if (midiReport?.unwrapped?.length) extras.push(`unwrapped from ${midiReport.unwrapped.join(" → ")}`);
+    if (midiReport?.chordsKept) extras.push(`${midiReport.chordsKept} chords kept`);
     if (midiReport?.chordNotesDropped) extras.push(`top note of ${midiReport.chordNotesDropped} chord notes kept`);
     if (midiReport?.tempoChanges) extras.push("tempo changes kept");
     const changed = describeNormalization(r);
@@ -369,7 +376,7 @@ export default function App() {
       return result;
     }
     setUserMelodies((prev) => {
-      setMelodyPreset(MELODY_PRESETS.length + prev.length); // select the new one
+      setMelodyPreset(MELODY_PRESETS.length + CHORD_SAMPLES.length + prev.length); // select the new one
       return [...prev, { melody: result.melody, midi }];
     });
     setMelodyStatus(importStatus(result.melody, result.report, midiReport));
@@ -390,7 +397,7 @@ export default function App() {
       const { bytes, steps } = unwrapMidi(await file.arrayBuffer(), file.name);
       const parsed = parseMidi(bytes);
       const fileName = file.name.replace(/(\.(mid|midi|kar|rmi))?(\.(hqx|bin))?$/i, "");
-      const { melody, report } = midiToMelody(parsed, { name: fileName });
+      const { melody, report } = midiToMelody(parsed, { name: fileName, chords: midiChordsRef.current });
       report.unwrapped = steps;
       engineRef.current.stop();
       addUserMelody(melody, { parsed, fileName, options: midiTrackOptions(parsed), track: report.track }, report);
@@ -400,12 +407,12 @@ export default function App() {
   }, [addUserMelody]);
 
   // Re-pick the voice of the selected imported MIDI melody (replaces it in place).
-  const handleMidiTrackChange = useCallback((track) => {
-    const idx = melodyPreset - MELODY_PRESETS.length;
+  const handleMidiTrackChange = useCallback((track, chords = midiChordsRef.current) => {
+    const idx = melodyPreset - MELODY_PRESETS.length - CHORD_SAMPLES.length;
     const entry = userMelodies[idx];
     if (!entry?.midi) return;
     try {
-      const { melody, report } = midiToMelody(entry.midi.parsed, { track, name: entry.midi.fileName });
+      const { melody, report } = midiToMelody(entry.midi.parsed, { track, name: entry.midi.fileName, chords });
       const result = normalizeMelody(melody);
       if (!result.ok) throw new Error(result.errors.join(" "));
       engineRef.current.stop();
@@ -469,7 +476,15 @@ export default function App() {
           <MelodyControl
           disabled={!bridgeReady}
           melodies={melodies}
-          presetCount={MELODY_PRESETS.length}
+          presetCount={BUILTIN_COUNT}
+          chordSampleStart={MELODY_PRESETS.length}
+          midiChords={midiChords}
+          onMidiChordsChange={(on) => {
+            setMidiChords(on);
+            midiChordsRef.current = on;
+            // Re-extract the selected MIDI import with the new setting.
+            if (selectedImport?.midi) handleMidiTrackChange(selectedImport.midi.track, on);
+          }}
           onImportMidi={handleImportMidi}
           trackOptions={selectedImport?.midi?.options ?? null}
           track={selectedImport?.midi?.track ?? null}

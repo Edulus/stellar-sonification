@@ -17,9 +17,19 @@ import { wlToFreq, DEFAULT_PARAMS } from "../audio/mappings.js";
 export const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
 export const freqToMidi = (f) => 69 + 12 * Math.log2(f / 440);
 
-/** Sorted (ascending) distinct MIDI pitches of a preset, rests excluded. */
+/**
+ * Pitches sounding in one note: `midi` is a number (single note), null (rest),
+ * or an array of numbers (a chord; CHORDS PROTOTYPE). Sorted, deduplicated.
+ */
+export function pitchesOf(note) {
+  if (note == null || note.midi == null) return [];
+  const list = Array.isArray(note.midi) ? note.midi : [note.midi];
+  return [...new Set(list.filter((m) => m != null))].sort((a, b) => a - b);
+}
+
+/** Sorted (ascending) distinct MIDI pitches of a preset, rests excluded (chord tones included). */
 export function distinctPitches(preset) {
-  return [...new Set(preset.notes.filter((n) => n.midi != null).map((n) => n.midi))].sort((a, b) => a - b);
+  return [...new Set(preset.notes.flatMap(pitchesOf))].sort((a, b) => a - b);
 }
 
 const nullsLast = (a, b, cmp) => (a == null ? (b == null ? 0 : 1) : b == null ? -1 : cmp(a, b));
@@ -83,26 +93,40 @@ export function planMelody(preset, assignment, { honest = false, params = DEFAUL
   const candidates = honest
     ? assignment.stars.flatMap((star) => (star.lines || []).map((line) => ({ star, line, freq: wlToFreq(line.wl, params) })))
     : null;
+  const voiceFor = (midi) => {
+    const target = midiToFreq(midi);
+    let star, line, freq;
+    if (honest) {
+      let best = null, bestD = Infinity;
+      for (const c of candidates) {
+        const d = Math.abs(Math.log2(c.freq / target));
+        if (d < bestD) { bestD = d; best = c; } // ties keep the cooler (earlier) star
+      }
+      if (best) ({ star, line, freq } = best);
+    } else {
+      star = assignment.byPitch.get(midi);
+      line = star ? strongestLine(star.lines) : null;
+      freq = target;
+    }
+    return star && line ? { midi, star, line, freq, driftSemitones: 12 * Math.log2(freq / target) } : null;
+  };
   for (const n of preset.notes) {
     const dur = n.beats * beat;
-    if (n.midi != null) {
-      const target = midiToFreq(n.midi);
-      let star, line, freq;
-      if (honest) {
-        let best = null, bestD = Infinity;
-        for (const c of candidates) {
-          const d = Math.abs(Math.log2(c.freq / target));
-          if (d < bestD) { bestD = d; best = c; } // ties keep the cooler (earlier) star
-        }
-        if (best) ({ star, line, freq } = best);
-      } else {
-        star = assignment.byPitch.get(n.midi);
-        line = star ? strongestLine(star.lines) : null;
-        freq = target;
-      }
-      if (star && line) {
-        events.push({ t, dur, midi: n.midi, star, line, freq, driftSemitones: 12 * Math.log2(freq / target) });
-      }
+    // Each sounding pitch is one voice; a chord has several. Identical voices
+    // (honest mode can map two pitches to the same line) are merged.
+    const seen = new Set();
+    const voices = [];
+    for (const m of pitchesOf(n)) {
+      const v = voiceFor(m);
+      if (!v) continue;
+      const k = `${v.star.key}|${v.line.wl}|${v.freq}`;
+      if (seen.has(k)) continue;
+      seen.add(k); voices.push(v);
+    }
+    if (voices.length) {
+      // Top-level fields mirror the highest voice (the melody), as before chords.
+      const top = voices[voices.length - 1];
+      events.push({ t, dur, voices, midi: top.midi, star: top.star, line: top.line, freq: top.freq, driftSemitones: top.driftSemitones });
     }
     t += dur;
   }
@@ -112,12 +136,13 @@ export function planMelody(preset, assignment, { honest = false, params = DEFAUL
 /** Drift summary for honest mode: how far the sounding pitch is from the melody. */
 export function driftStats(events) {
   if (!events.length) return { notes: 0, meanAbs: 0, maxAbs: 0, within50c: 0, starsUsed: 0 };
-  const abs = events.map((e) => Math.abs(e.driftSemitones));
+  const voices = events.flatMap((e) => e.voices || [e]);
+  const abs = voices.map((v) => Math.abs(v.driftSemitones));
   return {
     notes: events.length,
     meanAbs: abs.reduce((a, b) => a + b, 0) / abs.length,
     maxAbs: Math.max(...abs),
     within50c: abs.filter((d) => d <= 0.5).length / abs.length,
-    starsUsed: new Set(events.map((e) => e.star.key)).size,
+    starsUsed: new Set(voices.map((v) => v.star.key)).size,
   };
 }

@@ -78,7 +78,18 @@ export function normalizeMelody(raw, limits = {}) {
   for (const n of raw.notes) {
     if (!n || !isNum(n.beats) || n.beats <= 0) { report.dropped++; continue; }
     let midi = n.midi;
-    if (midi === null || midi === undefined) midi = null;
+    if (Array.isArray(midi)) {
+      // A chord (CHORDS PROTOTYPE): clean each tone; 0 tones → rest, 1 → single note.
+      const tones = [];
+      for (const m of midi) {
+        if (!isNum(m)) continue;
+        if (!Number.isInteger(m)) report.roundedPitches++;
+        tones.push(Math.round(m));
+      }
+      const uniq = [...new Set(tones)].sort((a, b) => a - b);
+      midi = uniq.length === 0 ? null : uniq.length === 1 ? uniq[0] : uniq;
+      if (uniq.length === 0) report.restsCoerced++;
+    } else if (midi === null || midi === undefined) midi = null;
     else if (!isNum(midi)) { midi = null; report.restsCoerced++; }
     else if (!Number.isInteger(midi)) { midi = Math.round(midi); report.roundedPitches++; }
     notes.push({ midi, beats: n.beats });
@@ -98,7 +109,7 @@ export function normalizeMelody(raw, limits = {}) {
   if (notes.length > L.maxNotes) { report.truncated = notes.length - L.maxNotes; notes = notes.slice(0, L.maxNotes); }
   while (notes.length && notes[notes.length - 1].midi === null) notes.pop();
 
-  const pitched = notes.filter((n) => n.midi !== null).map((n) => n.midi);
+  const pitched = notes.filter((n) => n.midi !== null).flatMap((n) => (Array.isArray(n.midi) ? n.midi : [n.midi]));
   if (!pitched.length) {
     return { ok: false, melody: null, errors: [...errors, "The melody has no playable notes."], report };
   }
@@ -106,16 +117,22 @@ export function normalizeMelody(raw, limits = {}) {
   // Range fit: whole-octave transposition first, then fold stragglers.
   const shift = bestOctaveShift(pitched, L.minMidi, L.maxMidi);
   report.transposedBy = shift;
+  const fit = (m0) => {
+    let m = m0 + shift;
+    if (m < L.minMidi || m > L.maxMidi) { m = foldIntoRange(m, L.minMidi, L.maxMidi); report.folded++; }
+    return m;
+  };
   notes = notes.map((n) => {
     if (n.midi === null) return n;
-    let m = n.midi + shift;
-    if (m < L.minMidi || m > L.maxMidi) { m = foldIntoRange(m, L.minMidi, L.maxMidi); report.folded++; }
-    return { midi: m, beats: n.beats };
+    if (!Array.isArray(n.midi)) return { midi: fit(n.midi), beats: n.beats };
+    const tones = [...new Set(n.midi.map(fit))].sort((a, b) => a - b); // folding can merge tones
+    return { midi: tones.length === 1 ? tones[0] : tones, beats: n.beats };
   });
 
   const melody = { name, bpm, notes };
   report.notes = notes.filter((n) => n.midi !== null).length;
-  report.distinctPitches = new Set(notes.filter((n) => n.midi !== null).map((n) => n.midi)).size;
+  report.chords = notes.filter((n) => Array.isArray(n.midi)).length;
+  report.distinctPitches = new Set(notes.filter((n) => n.midi !== null).flatMap((n) => (Array.isArray(n.midi) ? n.midi : [n.midi]))).size;
   report.durationSec = notes.reduce((s, n) => s + n.beats, 0) * 60 / bpm;
   return { ok: true, melody, errors, report };
 }

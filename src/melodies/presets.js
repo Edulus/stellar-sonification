@@ -75,4 +75,35 @@ const jesu = {
 
 export const MELODY_PRESETS = [twinkle, ode, greensleeves, jesu];
 
+// ── CHORDS PROTOTYPE ─────────────────────────────────────────────────────
+// Samples for trying "chords across stars": a note whose `midi` is an array
+// sounds as a chord, each tone on its own star. Kept apart from MELODY_PRESETS
+// (which stay single-voice, as the brief requires) until the feature is approved.
+const C = (midis, beats) => ({ midi: midis, beats });
+const I_C = [60, 64, 67], V_C = [59, 62, 67], vi_C = [57, 60, 64], IV_C = [57, 60, 65];
+const i_Am = [57, 60, 64], VI_Am = [57, 60, 65], III_Am = [55, 60, 64], VII_Am = [55, 59, 62];
+const cC = [48, 52, 55], cF = [53, 57, 60], cG = [50, 55, 59]; // left-hand block chords for Twinkle
+export const CHORD_SAMPLES = [
+  {
+    name: "Chords: I–V–vi–IV in C",
+    bpm: 80,
+    notes: [C(I_C, 4), C(V_C, 4), C(vi_C, 4), C(IV_C, 4), C(I_C, 4), C(V_C, 4), C(vi_C, 4), C(IV_C, 4), C(I_C, 4)],
+  },
+  {
+    name: "Chords: i–VI–III–VII in A minor",
+    bpm: 76,
+    notes: [C(i_Am, 4), C(VI_Am, 4), C(III_Am, 4), C(VII_Am, 4), C(i_Am, 4), C(VI_Am, 4), C(III_Am, 4), C(VII_Am, 4), C(i_Am, 4)],
+  },
+  {
+    name: "Chords: Twinkle with block chords",
+    bpm: 100,
+    notes: [
+      C([...cC, C4], 1), C([...cC, C4], 1), C([...cC, G4], 1), C([...cC, G4], 1),
+      C([...cF, A4], 1), C([...cF, A4], 1), C([...cC, G4], 2),
+      C([...cF, F4], 1), C([...cF, F4], 1), C([...cC, E4], 1), C([...cC, E4], 1),
+      C([...cG, D4], 1), C([...cG, D4], 1), C([...cC, C4], 2),
+    ],
+  },
+];
+
 export default MELODY_PRESETS;

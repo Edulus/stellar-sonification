@@ -792,29 +792,38 @@ export class SonificationEngine {
         const e = events[i];
         const when = Math.max(now, start + e.t);
         const p = this.params;
-        this.activeNodes.push(...this._buildVoice(e.line, {
-          freq: e.freq,
-          dur: e.dur,
-          when,
-          starRV: e.star.rv ?? 0,
-          gainScale: magToGain(e.star.magnitude, p),
-          envFit: "proportional",
-        }));
-        const key = e.star.key;
-        this.melodyKeys.add(key);
-        const timer = setTimeout(() => {
-          this.melodyPulseTimers = this.melodyPulseTimers.filter((x) => x !== timer);
-          this._emit("melodyNote", {
-            starKey: key,
-            color: e.star.color,
-            // Pitch → wavelength on the app's own scale. In honest mode the note
-            // is the line's real pitch, so this is exactly the line's wavelength.
-            toneWl: freqToWl(e.freq, p),
-            durationSec: e.dur,
-            getPos: opts.getPos ? () => opts.getPos(e.star) : null,
-          });
-        }, Math.max(0, (when - ctx.currentTime) * 1000));
-        this.melodyPulseTimers.push(timer);
+        // A chord (CHORDS PROTOTYPE) is several voices at once; 1/√N keeps a
+        // chord about as loud as a single note, like playChord.
+        const voices = e.voices || [e];
+        const chordScale = 1 / Math.sqrt(voices.length);
+        const pulsed = new Set();
+        for (const v of voices) {
+          this.activeNodes.push(...this._buildVoice(v.line, {
+            freq: v.freq,
+            dur: e.dur,
+            when,
+            starRV: v.star.rv ?? 0,
+            gainScale: magToGain(v.star.magnitude, p) * chordScale,
+            envFit: "proportional",
+          }));
+          const key = v.star.key;
+          this.melodyKeys.add(key);
+          if (pulsed.has(key)) continue; // one pulse per star per event
+          pulsed.add(key);
+          const timer = setTimeout(() => {
+            this.melodyPulseTimers = this.melodyPulseTimers.filter((x) => x !== timer);
+            this._emit("melodyNote", {
+              starKey: key,
+              color: v.star.color,
+              // Pitch → wavelength on the app's own scale. In honest mode the note
+              // is the line's real pitch, so this is exactly the line's wavelength.
+              toneWl: freqToWl(v.freq, p),
+              durationSec: e.dur,
+              getPos: opts.getPos ? () => opts.getPos(v.star) : null,
+            });
+          }, Math.max(0, (when - ctx.currentTime) * 1000));
+          this.melodyPulseTimers.push(timer);
+        }
         i += 1;
       }
       this.activeNodes = this.activeNodes.filter((n) => (n._endsAt ?? Infinity) > now);
