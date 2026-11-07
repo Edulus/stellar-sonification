@@ -14,6 +14,7 @@
 //
 // Needs `npm run dev` running + Playwright (same as verify:slice).
 import { chromium } from "playwright";
+import { smf, tempo, name as trackName, on, off } from "./lib/smf.mjs";
 
 const url = process.argv[2] || "http://localhost:5173/";
 const browser = await chromium.launch({
@@ -325,6 +326,47 @@ try {
   ok(im.preset === "Imported bass line" && im.needed === 4 && im.available === 4 && im.pitchToStar.map(([p]) => p).sort((a, b) => a - b).join() === "52,55,59,64",
     "imported melody plays: 4 pitches (E3 G3 B3 E4 after the shift) on 4 stars");
   await click("Stop melody"); await sleep(200);
+
+  // ── MIDI upload through the real file picker ───────────────────────────
+  {
+    const Q = 480;
+    const piano = [[0, ...trackName("Piano")]];
+    for (const [a, b, c] of [[60, 64, 67], [65, 69, 72], [67, 71, 74], [60, 64, 72]]) {
+      piano.push([0, ...on(0, a)], [0, ...on(0, b)], [0, ...on(0, c)], [Q, ...off(0, a)], [0, ...off(0, b)], [0, ...off(0, c)]);
+    }
+    const flute = [[0, ...trackName("Flute")]];
+    for (const p of [79, 81, 83]) flute.push([0, ...on(1, p)], [Q, ...off(1, p)]);
+    const drums = [[0, ...trackName("Drums")]];
+    for (let i = 0; i < 16; i++) drums.push([0, ...on(9, 36)], [Q / 4, ...off(9, 36)]);
+    const file = Buffer.from(smf({ format: 1, ppq: Q, tracks: [[[0, ...tempo(96)]], piano, flute, drums] }));
+    await page.setInputFiles('input[aria-label="MIDI file"]', { name: "Test Song.mid", mimeType: "audio/midi", buffer: file });
+    await sleep(500);
+    const after = await page.evaluate(() => {
+      const sel = document.querySelector('select[aria-label="Melody preset"]');
+      const voice = document.querySelector('select[aria-label="MIDI voice"]');
+      return { selected: sel.options[sel.selectedIndex]?.textContent,
+        voices: voice ? [...voice.options].map((o) => o.textContent) : null, voice: voice?.value,
+        status: [...document.querySelectorAll("div")].map((d) => d.textContent).find((t) => /^Added "Test Song"/.test(t)) || "" };
+    });
+    ok(after.selected === "Test Song" && after.voices?.join("|") === "Piano · 12 notes|Flute · 3 notes|All tracks (top note)" && /voice: Piano/.test(after.status),
+      `MIDI upload: "${after.selected}" added and selected, voice picker ${JSON.stringify(after.voices)}, drums excluded`);
+    console.log(`      status: ${after.status}`);
+    await click("Play melody"); await sleep(400);
+    const pm = await melodySummary();
+    ok(pm.preset === "Test Song" && pm.pitchToStar.map(([p]) => p).sort((a, b) => a - b).join() === "67,72,74", "uploaded piano voice plays its top notes (G4 C5 D5)");
+    await click("Stop melody"); await sleep(200);
+    await page.selectOption('select[aria-label="MIDI voice"]', "2"); await sleep(300);
+    const switched = await page.evaluate(() => [...document.querySelectorAll("div")].map((d) => d.textContent).find((t) => /^Voice changed for "Test Song"/.test(t)) || "");
+    await click("Play melody"); await sleep(400);
+    const fm = await melodySummary();
+    ok(fm.pitchToStar.map(([p]) => p).sort((a, b) => a - b).join() === "79,81,83" && /voice: Flute/.test(switched),
+      "switching the voice to Flute re-extracts the melody in place (G5 A5 B5)");
+    await click("Stop melody"); await sleep(200);
+    await page.setInputFiles('input[aria-label="MIDI file"]', { name: "notes.txt.mid", mimeType: "audio/midi", buffer: Buffer.from("not a midi file at all") });
+    await sleep(400);
+    const bad = await page.evaluate(() => [...document.querySelectorAll("div")].map((d) => d.textContent).find((t) => /^Couldn't import/.test(t)) || "");
+    ok(/isn't a MIDI file/.test(bad), `a bad file is refused with a reason: "${bad}"`);
+  }
 
   // ── drawn-only on a phone viewport at wide FOV (12-pitch Greensleeves) ──
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });

@@ -11,6 +11,7 @@ import MelodyControl from "./MelodyControl.jsx";
 import useMinWidth from "./useMinWidth.js";
 import { MELODY_PRESETS } from "../melodies/presets.js";
 import { normalizeMelody, describeNormalization } from "../melodies/normalize.js";
+import { parseMidi, midiTrackOptions, midiToMelody, MIDI_LIMITS } from "../melodies/midi.js";
 import { assignStars, distinctPitches, planMelody, driftStats } from "../melodies/melody.js";
 import { SonificationEngine } from "../audio/SonificationEngine.js";
 import { StarDataResolver } from "../data/StarDataResolver.js";
@@ -71,8 +72,11 @@ export default function App() {
   const [melodyPreset, setMelodyPreset] = useState(0); // index into `melodies`
   // Melodies from outside presets.js (the planned MIDI upload lands here, after
   // normalizeMelody). The selector lists presets first, then these.
+  // Entries: { melody, midi? } — `midi` keeps the parsed file so the voice
+  // (track) can be re-picked without re-uploading.
   const [userMelodies, setUserMelodies] = useState([]);
-  const melodies = useMemo(() => [...MELODY_PRESETS, ...userMelodies], [userMelodies]);
+  const melodies = useMemo(() => [...MELODY_PRESETS, ...userMelodies.map((e) => e.melody)], [userMelodies]);
+  const selectedImport = melodyPreset >= MELODY_PRESETS.length ? userMelodies[melodyPreset - MELODY_PRESETS.length] : null;
   const [melodyHonest, setMelodyHonest] = useState(false);
   const [melodyPlaying, setMelodyPlaying] = useState(false);
   const [melodyStatus, setMelodyStatus] = useState(null); // {text, warn}
@@ -337,7 +341,26 @@ export default function App() {
   // with its single-voice { name, bpm, notes }). Normalizes it, appends it to
   // the selector, selects it, and reports what was changed. Returns the
   // normalizer's result so a caller can show errors.
-  const addUserMelody = useCallback((raw) => {
+  // Status line for an added/re-voiced melody: what it is and what changed.
+  const importStatus = (melody, r, midiReport, verb = "Added") => {
+    const voice = midiReport
+      ? ` · voice: ${midiReport.trackName}${midiReport.tracksWithNotes > 1 ? ` (1 of ${midiReport.tracksWithNotes} tracks with notes)` : ""}`
+      : "";
+    const extras = [];
+    if (midiReport?.chordNotesDropped) extras.push(`top note of ${midiReport.chordNotesDropped} chord notes kept`);
+    if (midiReport?.tempoChanges) extras.push("tempo changes kept");
+    const changed = describeNormalization(r);
+    return {
+      text: `${verb} "${melody.name}": ${r.notes} notes, ${r.distinctPitches} pitches (needs ${r.distinctPitches} stars), ${Math.round(r.durationSec)} s${voice}`
+        + ` · ${changed}${extras.length ? " · " + extras.join(", ") : ""}`,
+      warn: r.folded > 0 || r.truncated > 0,
+    };
+  };
+
+  // Add a melody from outside the presets. Normalizes it, appends it to the
+  // selector, selects it, and reports what changed. Returns the normalizer's
+  // result. `midi` (optional) is the parsed source, kept for track switching.
+  const addUserMelody = useCallback((raw, midi = null, midiReport = null) => {
     const result = normalizeMelody(raw);
     if (!result.ok) {
       setMelodyStatus({ text: `Couldn't add melody: ${result.errors.join(" ")}`, warn: true });
@@ -345,17 +368,48 @@ export default function App() {
     }
     setUserMelodies((prev) => {
       setMelodyPreset(MELODY_PRESETS.length + prev.length); // select the new one
-      return [...prev, result.melody];
+      return [...prev, { melody: result.melody, midi }];
     });
-    const r = result.report;
-    setMelodyStatus({
-      text: `Added "${result.melody.name}": ${r.notes} notes, ${r.distinctPitches} pitches, ${Math.round(r.durationSec)} s · ${describeNormalization(r)}`,
-      warn: r.folded > 0 || r.truncated > 0,
-    });
+    setMelodyStatus(importStatus(result.melody, result.report, midiReport));
     return result;
   }, []);
-  // Debug/test hook until the upload UI exists (mirrors window.__engine).
+  // Test hook (mirrors window.__engine): add a melody object directly.
   useEffect(() => { window.__addMelody = addUserMelody; }, [addUserMelody]);
+
+  // "+ MIDI": read a Standard MIDI File, pick a voice, add it as a melody.
+  const handleImportMidi = useCallback(async (file) => {
+    if (!file) return;
+    if (file.size > MIDI_LIMITS.maxBytes) {
+      setMelodyStatus({ text: `Couldn't import ${file.name}: larger than ${MIDI_LIMITS.maxBytes / 1024} KB.`, warn: true });
+      return;
+    }
+    try {
+      const parsed = parseMidi(await file.arrayBuffer());
+      const fileName = file.name.replace(/\.(mid|midi|kar)$/i, "");
+      const { melody, report } = midiToMelody(parsed, { name: fileName });
+      engineRef.current.stop();
+      addUserMelody(melody, { parsed, fileName, options: midiTrackOptions(parsed), track: report.track }, report);
+    } catch (e) {
+      setMelodyStatus({ text: `Couldn't import ${file.name}: ${e.message || e}`, warn: true });
+    }
+  }, [addUserMelody]);
+
+  // Re-pick the voice of the selected imported MIDI melody (replaces it in place).
+  const handleMidiTrackChange = useCallback((track) => {
+    const idx = melodyPreset - MELODY_PRESETS.length;
+    const entry = userMelodies[idx];
+    if (!entry?.midi) return;
+    try {
+      const { melody, report } = midiToMelody(entry.midi.parsed, { track, name: entry.midi.fileName });
+      const result = normalizeMelody(melody);
+      if (!result.ok) throw new Error(result.errors.join(" "));
+      engineRef.current.stop();
+      setUserMelodies((prev) => prev.map((e, k) => (k === idx ? { melody: result.melody, midi: { ...e.midi, track: report.track } } : e)));
+      setMelodyStatus(importStatus(result.melody, result.report, report, "Voice changed for"));
+    } catch (e) {
+      setMelodyStatus({ text: `Couldn't use that track: ${e.message || e}`, warn: true });
+    }
+  }, [melodyPreset, userMelodies]);
 
   // Melody ■: halt audio and clear every pulse (stop() → starStopped per star).
   const handleMelodyStop = useCallback(() => {
@@ -411,6 +465,10 @@ export default function App() {
           disabled={!bridgeReady}
           melodies={melodies}
           presetCount={MELODY_PRESETS.length}
+          onImportMidi={handleImportMidi}
+          trackOptions={selectedImport?.midi?.options ?? null}
+          track={selectedImport?.midi?.track ?? null}
+          onTrackChange={handleMidiTrackChange}
           presetIndex={melodyPreset}
           onPresetChange={setMelodyPreset}
           honest={melodyHonest}

@@ -301,3 +301,38 @@ line is a Balmer line, so this is physics, not a bug. D2 (shared templates) exte
 neighbouring classes. Earlier runs passed only because no such pair was in view. The test
 is left strict, so it can fail depending on the sky, and the limitation is reported rather
 than masked.
+
+## 11. MIDI upload (2026-11-07)
+
+Built, using these defaults for the five open decisions in §10 (each is easy to change):
+
+1. **Parser:** our own, dependency-free (`src/melodies/midi.js`, about 250 lines). It
+   handles formats 0, 1 and 2, PPQ and SMPTE timing, running status, note-on velocity 0
+   as note-off, notes never switched off (ended at the track's last event), sysex and meta
+   events, and a 1 MB limit.
+2. **Voice:** the busiest pitched track by default. A VOICE picker appears when a file has
+   several pitched tracks, with an "All tracks (top note)" option. Channel 10 (percussion)
+   is excluded. Overlaps become one line: the highest note wins at each onset, and a new
+   onset ends the note before it.
+3. **Timing:** not quantized. Gaps under 1/64 beat are absorbed. Tempo changes are kept:
+   each note's real duration is re-expressed in exact beats of the first tempo.
+4. **Pitch count:** no cap. The status line shows how many stars the tune needs, and
+   assignment cycles stars if fewer are in view. Range fitting is `normalizeMelody`'s
+   octave shift and fold.
+5. **UI and persistence:** "+ MIDI" in the MELODY row opens a file picker. Imports are
+   listed under "Imported" and last until the page reloads.
+
+**Tested:** `verify:melody` checks the parser and voice extraction on files built byte by
+byte (`scripts/lib/smf.mjs`): format 0 with running status, velocity-0 note-offs and rests;
+format 1 with conductor, chordal piano, flute and drums; a mid-file tempo change; overlaps
+and unterminated notes; SMPTE timing; and bad files (not MIDI, truncated, drums only, no
+notes). `verify:melody-live` uploads a three-track file through the real file picker,
+checks the voice picker, plays it, switches voice, and refuses a bad file. No real-world
+MIDI files were tested: this session can't download them, and the site the user linked
+(wendycarlos.com) is blocked by the session's network settings.
+
+**Known limits:**
+- **Pitch bend is ignored**, so a file that uses bends for microtonal or alternative
+  tunings plays in 12-TET. This matters for Wendy Carlos's Alpha, Beta and Gamma scale
+  pieces, if those are what the linked page offers.
+- Imports don't survive a reload.

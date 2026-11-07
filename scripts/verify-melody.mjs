@@ -19,6 +19,8 @@ import {
 } from "../src/melodies/melody.js";
 import { magToGain, wlToFreq, freqToWl, DEFAULT_PARAMS, profileToEnvelope } from "../src/audio/mappings.js";
 import { normalizeMelody, describeNormalization, MELODY_LIMITS } from "../src/melodies/normalize.js";
+import { parseMidi, midiTrackOptions, midiToMelody } from "../src/melodies/midi.js";
+import { smf, tempo, name as trackName, on, off } from "./lib/smf.mjs";
 import { fitEnvelope } from "../src/audio/envelope.js";
 
 let fails = 0;
@@ -67,6 +69,68 @@ const big = normalizeMelody({ name: "Chromatic", bpm: 120, notes: Array.from({ l
 const bigAssign = assignStars(Array.from({ length: 12 }, (_, i) => ({ key: `s${i}`, name: `s${i}`, magnitude: i, temp: 3000 + i * 1000, lines: [] })), big.melody);
 ok(big.ok && big.report.distinctPitches === 30 && bigAssign.fallback && bigAssign.byPitch.size === 30,
   "an imported tune with more pitches (30) than stars (12) still plays via the cycling fallback");
+
+// 1c. MIDI import (parseMidi / midiToMelody), on files built byte by byte
+const Q = 480; // ticks per quarter
+const notesOf = (m) => m.notes.map((n) => `${n.midi ?? "r"}:${n.beats}`).join(" ");
+{
+  // Format 0, 100 bpm; note-on velocity 0 as note-off; running status; a rest.
+  const f = smf({ format: 0, ppq: Q, tracks: [[
+    [0, ...tempo(100)], [0, ...trackName("Tune")],
+    [0, ...on(0, 60)], [Q, 0x90, 60, 0],            // C4 1 beat, off via vel 0
+    [0, 62, 100], [Q, 62, 0],                       // running status: D4 1 beat
+    [Q, 64, 100], [2 * Q, ...off(0, 64)],           // 1-beat rest, E4 2 beats
+  ]] });
+  const { melody, report } = midiToMelody(parseMidi(f));
+  ok(melody.bpm === 100 && melody.name === "Tune" && notesOf(melody) === "60:1 62:1 r:1 64:2" && report.track === 0,
+    `MIDI format 0: tempo, name, running status, vel-0 note-off and rests read (${notesOf(melody)})`);
+}
+{
+  // Format 1: conductor track, a chordal piano (busiest), a flute melody, drums (busier still).
+  const piano = [[0, ...trackName("Piano")],
+    [0, ...on(0, 60)], [0, ...on(0, 64)], [0, ...on(0, 67)], [Q, ...off(0, 60)], [0, ...off(0, 64)], [0, ...off(0, 67)],
+    [0, ...on(0, 65)], [0, ...on(0, 69)], [0, ...on(0, 72)], [Q, ...off(0, 65)], [0, ...off(0, 69)], [0, ...off(0, 72)]];
+  const flute = [[0, ...trackName("Flute")], [0, ...on(1, 76)], [Q, ...off(1, 76)], [0, ...on(1, 77)], [Q, ...off(1, 77)]];
+  const drums = [[0, ...trackName("Drums")]];
+  for (let i = 0; i < 10; i++) drums.push([0, ...on(9, 36)], [Q / 4, ...off(9, 36)]);
+  const parsed = parseMidi(smf({ format: 1, ppq: Q, tracks: [[[0, ...tempo(90)]], piano, flute, drums] }));
+  const opts = midiTrackOptions(parsed);
+  ok(opts.map((o) => `${o.name}:${o.count}`).join() === "Piano:6,Flute:2", `track options skip percussion and empty tracks, busiest first (${opts.map((o) => o.name).join(", ")})`);
+  const def = midiToMelody(parsed);
+  ok(def.report.trackName === "Piano" && notesOf(def.melody) === "67:1 72:1" && def.report.chordNotesDropped === 4 && Math.abs(def.melody.bpm - 90) < 0.001,
+    "default voice = busiest pitched track; chords keep their top note");
+  ok(notesOf(midiToMelody(parsed, { track: 2 }).melody) === "76:1 77:1", "a chosen track is used as the voice");
+  ok(notesOf(midiToMelody(parsed, { track: "all" }).melody) === "76:1 77:1", "'all' merges tracks, highest note per onset");
+  ok(normalizeMelody(def.melody).ok, "a parsed MIDI voice passes the normalizer");
+}
+{
+  // Tempo change: 120 bpm for the first quarter, then 60. Two quarters → 0.5 s + 1 s → 1 + 2 beats at 120.
+  const f = smf({ format: 0, ppq: Q, tracks: [[[0, ...tempo(120)], [0, ...on(0, 60)], [Q, ...off(0, 60)], [0, ...tempo(60)], [0, ...on(0, 62)], [Q, ...off(0, 62)]]] });
+  const { melody, report } = midiToMelody(parseMidi(f));
+  ok(melody.bpm === 120 && notesOf(melody) === "60:1 62:2" && report.tempoChanges, "tempo changes keep real timing (re-expressed in the first tempo's beats)");
+}
+{
+  // Overlap (legato): A 0–2 beats, B starts at 1 → A cut at 1. A note never switched off ends at the last event.
+  const f = smf({ format: 0, ppq: Q, tracks: [[[0, ...on(0, 69)], [Q, ...on(0, 71)], [Q, ...off(0, 69)], [Q, ...off(0, 71)], [0, ...on(0, 72)], [Q, 0xb0, 7, 100]]] });
+  const { melody, report } = midiToMelody(parseMidi(f));
+  ok(notesOf(melody) === "69:1 71:2 72:1" && report.overlapsCut === 1, `overlaps become one line; unterminated notes end at the track's last event (${notesOf(melody)})`);
+}
+{
+  // SMPTE division: 25 fps × 40 ticks = 1000 ticks/s; a 500-tick note = 0.5 s = 1 beat at the default 120 bpm.
+  const f = smf({ format: 0, smpte: { fps: 25, tpf: 40 }, tracks: [[[0, ...on(0, 60)], [500, ...off(0, 60)]]] });
+  const { melody } = midiToMelody(parseMidi(f));
+  ok(melody.bpm === 120 && notesOf(melody) === "60:1", "SMPTE-timed files are converted to beats");
+}
+{
+  const err = (fn) => { try { fn(); return null; } catch (e) { return e.message; } };
+  const notMidi = err(() => parseMidi(new TextEncoder().encode("hello, this is not a MIDI file")));
+  const good = smf({ format: 0, ppq: Q, tracks: [[[0, ...on(0, 60)], [Q, ...off(0, 60)]]] });
+  const truncated = err(() => parseMidi(good.slice(0, good.length - 6)));
+  const drumsOnly = err(() => midiToMelody(parseMidi(smf({ format: 0, ppq: Q, tracks: [[[0, ...on(9, 36)], [Q, ...off(9, 36)]]] }))));
+  const empty = err(() => midiToMelody(parseMidi(smf({ format: 0, ppq: Q, tracks: [[[0, ...tempo(100)]]] }))));
+  ok(/isn't a MIDI file/.test(notMidi) && /ends unexpectedly/.test(truncated) && /only has percussion/.test(drumsOnly) && /no notes/.test(empty),
+    "bad files fail with a readable reason (not MIDI, truncated, drums only, no notes)");
+}
 
 // 2. magToGain
 const db = (g) => 20 * Math.log10(g);

@@ -5,12 +5,20 @@
 // melodies/melody.js) and plays it; ■ stops audio and clears every pulse.
 // A one-line status shows how many stars were assigned and flags the
 // "fewer stars than pitches" fallback.
+//
+// "+ MIDI" opens a file picker for a Standard MIDI File (App.handleImportMidi).
+// When the selected melody came from a MIDI file with several pitched tracks,
+// a VOICE picker appears so a different track (or all, top note) can be used.
+
+import { useRef } from "react";
 
 // `melodies` is presets first, then imported melodies (presetCount splits
 // them); imported ones appear under their own heading in the selector.
 export default function MelodyControl({
   disabled, melodies, presetCount, presetIndex, onPresetChange, honest, onHonestChange, playing, onPlay, onStop, status,
+  onImportMidi, trackOptions, track, onTrackChange,
 }) {
+  const fileRef = useRef(null);
   const presets = melodies.slice(0, presetCount);
   const imported = melodies.slice(presetCount);
   return (
@@ -53,6 +61,42 @@ export default function MelodyControl({
         >
           HONEST <span style={S.state}>{honest ? "ON" : "OFF"}</span>
         </button>
+        <button
+          onClick={() => fileRef.current?.click()}
+          style={S.button(false, false)}
+          title="Import a melody from a MIDI file (.mid)"
+          aria-label="Import MIDI file"
+        >
+          + MIDI
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".mid,.midi,.kar,audio/midi,audio/x-midi"
+          style={{ display: "none" }}
+          aria-label="MIDI file"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = ""; // same file can be picked again
+            if (f) onImportMidi?.(f);
+          }}
+        />
+        {trackOptions && trackOptions.length > 1 && (
+          <label style={S.voice}>
+            VOICE
+            <select
+              value={String(track)}
+              onChange={(e) => onTrackChange?.(e.target.value === "all" ? "all" : Number(e.target.value))}
+              style={S.select}
+              aria-label="MIDI voice"
+            >
+              {trackOptions.map((t) => (
+                <option key={t.index} value={t.index}>{t.name} · {t.count} notes</option>
+              ))}
+              <option value="all">All tracks (top note)</option>
+            </select>
+          </label>
+        )}
       </div>
       {status && <div style={S.status(status.warn)}>{status.text}</div>}
     </div>
@@ -84,6 +128,7 @@ const S = {
     cursor: disabled ? "default" : "pointer", whiteSpace: "nowrap",
   }),
   state: { opacity: 0.6, marginLeft: 2 },
+  voice: { display: "flex", alignItems: "center", gap: 4, fontFamily: mono, fontSize: 10, letterSpacing: 1, color: "rgba(200,208,225,0.8)" },
   status: (warn) => ({
     fontFamily: mono, fontSize: 10, letterSpacing: 0.5,
     color: warn ? "rgba(255,200,120,0.95)" : "rgba(200,208,225,0.75)",

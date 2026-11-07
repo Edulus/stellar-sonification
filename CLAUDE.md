@@ -156,7 +156,16 @@ Joy, Greensleeves, Jesu Joy of Man's Desiring) across the brightest stars in vie
   mode exactly the line's own colour) and the glow behind it is the **star's** display colour.
   Hover/SEQ/CHORD bands are unchanged (one colour, the line's). `stop()` emits `starStopped`
   per melody star, which clears them.
-- **Imported melodies (MIDI groundwork)**: anything not in `presets.js` goes through
+- **MIDI upload**: "+ MIDI" in the MELODY row → [src/melodies/midi.js](src/melodies/midi.js)
+  (dependency-free Standard MIDI File parser: formats 0/1/2, PPQ or SMPTE timing, running
+  status, tempo map). One voice: the busiest pitched track by default, with a VOICE picker
+  for multi-track files (or "All tracks"); channel 10 (percussion) is never a voice;
+  highest note per onset, and a new onset ends the previous note. Timing is not quantized;
+  tempo changes are honoured by re-expressing real seconds in beats of the first tempo.
+  Pitch bend is ignored, so microtonal or retuned files play in 12-TET. 1 MB limit; imports
+  last until the page reloads. Tests build files byte by byte with
+  [scripts/lib/smf.mjs](scripts/lib/smf.mjs).
+- **Imported melodies**: anything not in `presets.js` goes through
   [src/melodies/normalize.js](src/melodies/normalize.js) `normalizeMelody(raw)`: name/bpm
   sanitised, bad notes dropped, rests merged/trimmed, whole-octave shift to fit MIDI 48–84
   then stragglers folded by octave, truncation at 2,000 notes. Never throws; returns
