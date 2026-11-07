@@ -26,7 +26,7 @@ import { ALL_SITES } from "../data/locations.js";
 // sonification live; the Spectrum panel (bottom) visualizes and lets you click
 // individual lines.
 
-const WIDE_HUD_MIN_PX = 1440;
+const WIDE_HUD_MIN_PX = 1680; // the centred hint clears the HUD row only above this (text sizes +2 px)
 
 export default function App() {
   const engineRef = useRef(null);
@@ -430,7 +430,7 @@ export default function App() {
   }, []);
 
   // The centred hint only fits beside the top-left buttons on wide screens
-  // (~460 px of hint centred against ~470 px of buttons → needs ≥ 1440 px).
+  // (~500 px of hint centred against ~530 px of buttons).
   const wideHud = useMinWidth(WIDE_HUD_MIN_PX);
   const hintText = hoverEnabled ? "Hover a star to hear it sing" : "Click a star for its spectrum · ▶ to hear it sing";
 
@@ -586,7 +586,7 @@ const styles = {
   },
   hintInline: {
     fontFamily: "'IBM Plex Mono', 'Menlo', monospace",
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 1.5,
     color: "rgba(225,232,245,0.8)",
     textTransform: "uppercase",
@@ -609,7 +609,7 @@ const styles = {
     textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.85), 0 0 14px rgba(0,0,0,0.6)",
   },
   hint: {
-    fontSize: 12,
+    fontSize: 13,
     letterSpacing: 2,
     color: "rgba(225,232,245,0.85)",
     textTransform: "uppercase",

@@ -118,7 +118,7 @@ export default function SynthPanel({
 
                 {hoverType === "chord" && (
                   <>
-                    <div style={{ ...styles.groupTitle, marginTop: 6, fontSize: 7, opacity: 0.7 }}>chord settings</div>
+                    <div style={{ ...styles.groupTitle, marginTop: 6, fontSize: 9, opacity: 0.7 }}>chord settings</div>
                     <Slider spec={{ key: "hoverGainScale", label: "Gain scale", min: 0.2, max: 1.0, step: 0.05 }}
                       value={params.hoverGainScale} changed={params.hoverGainScale !== 0.7}
                       onChange={(v) => onChange({ hoverGainScale: v })} />
@@ -133,7 +133,7 @@ export default function SynthPanel({
 
                 {hoverType === "sequence" && (
                   <>
-                    <div style={{ ...styles.groupTitle, marginTop: 6, fontSize: 7, opacity: 0.7 }}>sequence settings</div>
+                    <div style={{ ...styles.groupTitle, marginTop: 6, fontSize: 9, opacity: 0.7 }}>sequence settings</div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span style={{ ...styles.label, color: "rgba(170,178,196,0.7)" }}>Repeat</span>
                       <div style={{ display: "flex", gap: 4 }}>
@@ -228,7 +228,7 @@ const styles = {
     writingMode: "vertical-rl",
     transform: "rotate(180deg)",
     fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 2,
   },
   panel: {
@@ -260,7 +260,7 @@ const styles = {
     borderRadius: 4,
     color: "rgba(180,200,235,0.9)",
     fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 2,
     padding: "7px 12px",
     cursor: "pointer",
@@ -294,14 +294,14 @@ const styles = {
     padding: "14px 14px 10px",
     borderBottom: "1px solid rgba(120,140,180,0.15)",
   },
-  title: { fontSize: 11, letterSpacing: 3, color: "rgba(190,205,235,0.9)" },
+  title: { fontSize: 13, letterSpacing: 3, color: "rgba(190,205,235,0.9)" },
   headerBtns: { display: "flex", alignItems: "center", gap: 6 },
   mode: {
     background: "transparent",
     border: "1px solid rgba(120,150,200,0.35)",
     color: "rgba(170,195,240,0.8)",
     fontFamily: "inherit",
-    fontSize: 9,
+    fontSize: 11,
     letterSpacing: 1,
     padding: "3px 8px",
     borderRadius: 3,
@@ -312,7 +312,7 @@ const styles = {
     border: "1px solid rgba(120,140,180,0.3)",
     color: "rgba(170,180,200,0.7)",
     fontFamily: "inherit",
-    fontSize: 9,
+    fontSize: 11,
     letterSpacing: 1,
     padding: "3px 8px",
     borderRadius: 3,
@@ -332,7 +332,7 @@ const styles = {
   scroll: { overflowY: "auto", padding: "10px 14px 24px", flex: 1 },
   group: { marginBottom: 14 },
   groupTitle: {
-    fontSize: 8,
+    fontSize: 10,
     letterSpacing: 2,
     textTransform: "uppercase",
     color: "rgba(140,150,170,0.5)",
@@ -340,15 +340,15 @@ const styles = {
   },
   row: { display: "block", marginBottom: 9 },
   labelRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 },
-  label: { fontSize: 10 },
-  value: { fontSize: 10, color: "rgba(200,210,230,0.85)" },
+  label: { fontSize: 12 },
+  value: { fontSize: 12, color: "rgba(200,210,230,0.85)" },
   range: { width: "100%", accentColor: "#5b86c4", cursor: "pointer" },
-  foot: { fontSize: 9, color: "rgba(120,130,150,0.5)", lineHeight: 1.5, marginTop: 6 },
+  foot: { fontSize: 11, color: "rgba(120,130,150,0.5)", lineHeight: 1.5, marginTop: 6 },
   toggle: {
     background: "transparent",
     border: "1px solid",
     fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 9,
+    fontSize: 11,
     padding: "3px 9px",
     borderRadius: 3,
     cursor: "pointer",

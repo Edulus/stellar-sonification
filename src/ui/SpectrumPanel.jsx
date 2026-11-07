@@ -358,14 +358,14 @@ const styles = {
   // The identity block truncates; the controls never do.
   headLeft: { minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 1 },
   name: { fontSize: 14, letterSpacing: 2, fontWeight: 700, marginRight: 8 },
-  meta: { fontSize: 10, color: "rgba(160,170,190,0.55)", letterSpacing: 1 },
-  badge: { fontSize: 8, letterSpacing: 1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, marginLeft: 8 },
+  meta: { fontSize: 12, color: "rgba(160,170,190,0.55)", letterSpacing: 1 },
+  badge: { fontSize: 10, letterSpacing: 1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, marginLeft: 8 },
   badgeCurated: { background: "rgba(120,220,170,0.12)", color: "rgba(150,235,195,0.9)", border: "1px solid rgba(120,220,170,0.3)" },
   badgeTemplate: { background: "rgba(255,200,120,0.1)", color: "rgba(255,210,150,0.85)", border: "1px solid rgba(255,200,120,0.28)" },
   right: { display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "0 1 auto", justifyContent: "flex-end" },
   // The only element allowed to give up space when the header is tight.
   lineInfo: {
-    fontSize: 9, color: "rgba(180,188,205,0.6)",
+    fontSize: 11, color: "rgba(180,188,205,0.6)",
     flex: "0 1 auto", minWidth: 0, overflow: "hidden",
     textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
@@ -375,25 +375,25 @@ const styles = {
   },
   modeBtn: {
     background: "transparent", border: "none", color: "rgba(160,170,195,0.6)",
-    fontFamily: "inherit", fontSize: 9, letterSpacing: 1, padding: "4px 8px",
+    fontFamily: "inherit", fontSize: 11, letterSpacing: 1, padding: "4px 8px",
     cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
   },
   modeOn: { background: "rgba(120,150,200,0.22)", color: "rgba(185,205,245,0.95)" },
   replay: {
     flexShrink: 0,
     background: "transparent", border: "1px solid rgba(120,140,180,0.3)",
-    color: "rgba(180,200,235,0.85)", fontFamily: "inherit", fontSize: 10,
+    color: "rgba(180,200,235,0.85)", fontFamily: "inherit", fontSize: 12,
     width: 22, height: 22, borderRadius: 3, cursor: "pointer", lineHeight: 1,
   },
   seedBox: { display: "flex", alignItems: "center", gap: 6, flexShrink: 0 },
   seedKey: {
-    fontSize: 9, letterSpacing: 1, color: "rgba(150,175,220,0.75)",
+    fontSize: 11, letterSpacing: 1, color: "rgba(150,175,220,0.75)",
     whiteSpace: "nowrap", textTransform: "uppercase",
   },
   seedInput: {
     background: "rgba(20,24,36,0.8)", border: "1px solid rgba(120,140,180,0.3)",
     borderRadius: 3, color: "rgba(210,220,240,0.9)", fontFamily: "inherit",
-    fontSize: 10, letterSpacing: 1, padding: "3px 6px", width: 84, outline: "none",
+    fontSize: 12, letterSpacing: 1, padding: "3px 6px", width: 84, outline: "none",
   },
   replayOn: {
     background: "rgba(120,150,200,0.22)", borderColor: "#5b86c4",
@@ -410,7 +410,7 @@ const styles = {
   close: {
     flexShrink: 0,
     background: "transparent", border: "1px solid rgba(120,140,180,0.3)",
-    color: "rgba(170,180,200,0.7)", fontFamily: "inherit", fontSize: 10,
+    color: "rgba(170,180,200,0.7)", fontFamily: "inherit", fontSize: 12,
     width: 22, height: 22, borderRadius: 3, cursor: "pointer", lineHeight: 1,
   },
 };

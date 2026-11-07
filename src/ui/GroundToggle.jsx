@@ -26,7 +26,7 @@ const S = {
     border: `1px solid ${on ? "rgba(120,150,200,0.6)" : "rgba(100,110,135,0.45)"}`,
     color: on ? "rgba(190,210,250,0.98)" : "rgba(200,208,225,0.92)",
     fontFamily: "'IBM Plex Mono', 'Menlo', monospace",
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 1,
     padding: "6px 11px",
     borderRadius: 3,
