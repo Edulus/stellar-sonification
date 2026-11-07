@@ -8,6 +8,7 @@ import TimeControl from "./TimeControl.jsx";
 import RingOverlay from "./RingOverlay.jsx";
 import ObjectTooltip from "./ObjectTooltip.jsx";
 import MelodyControl from "./MelodyControl.jsx";
+import useMinWidth from "./useMinWidth.js";
 import { MELODY_PRESETS } from "../melodies/presets.js";
 import { assignStars, distinctPitches, planMelody, driftStats } from "../melodies/melody.js";
 import { SonificationEngine } from "../audio/SonificationEngine.js";
@@ -17,25 +18,12 @@ import { keyForStar } from "../audio/seededMusic.js";
 import { ALL_SITES } from "../data/locations.js";
 
 // App shell: click a star -> resolve spectral data (curated or template) -> hear
-// it sing + see its spectrum. The Synth Character panel (right) retunes the
+// it sing + see its spectrum. The Synth Character panel (right edge; a bottom
+// sheet on phones) retunes the
 // sonification live; the Spectrum panel (bottom) visualizes and lets you click
 // individual lines.
 
 const WIDE_HUD_MIN_PX = 1440;
-
-/** True while the viewport is at least `px` wide (tracks resizes/rotation). */
-function useMinWidth(px) {
-  const query = `(min-width: ${px}px)`;
-  const [match, setMatch] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const on = () => setMatch(mq.matches);
-    on();
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, [query]);
-  return match;
-}
 
 export default function App() {
   const engineRef = useRef(null);

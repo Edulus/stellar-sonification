@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { PARAM_GROUPS, DEFAULT_PARAMS } from "../audio/mappings.js";
+import useMinWidth from "./useMinWidth.js";
 
-// Right-side collapsible "Synth Character" tweaker. A tab on the right edge
-// toggles a drawer of grouped sliders that retune the sonification mapping live.
+// Collapsible "Synth Character" tweaker. On wide screens a tab on the right
+// edge toggles a drawer of grouped sliders; on phones (< SHEET_MAX_PX) a corner
+// button opens the same content as a bottom sheet, because a 270 px side drawer
+// covers half a phone and runs over the top-left HUD. Either way it retunes the
+// sonification mapping live.
 // Changes call onChange(patch) -> the engine's setParams; they apply to the next
 // note (so you can tune while a sequence plays).
 
@@ -25,6 +29,7 @@ export default function SynthPanel({
 }) {
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState(false); // false = simple (curated subset)
+  const sheet = !useMinWidth(SHEET_MAX_PX); // phone layout: bottom sheet
 
   // In simple mode, keep only curated params and drop groups left empty.
   const groups = PARAM_GROUPS
@@ -36,16 +41,30 @@ export default function SynthPanel({
 
   return (
     <>
-      {/* Edge toggle tab — always visible */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{ ...styles.tab, right: open ? PANEL_W : 0 }}
-        title="Synth Character"
-      >
-        <span style={styles.tabText}>{open ? "›  SYNTH" : "‹  SYNTH"}</span>
-      </button>
+      {sheet ? (
+        // Phone: corner button; hidden while the sheet is up (the sheet has ×).
+        !open && (
+          <button onClick={() => setOpen(true)} style={styles.sheetTab} title="Synth Character" aria-label="Open synth controls">
+            SYNTH ▴
+          </button>
+        )
+      ) : (
+        // Wide: edge toggle tab — always visible
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{ ...styles.tab, right: open ? PANEL_W : 0 }}
+          title="Synth Character"
+        >
+          <span style={styles.tabText}>{open ? "›  SYNTH" : "‹  SYNTH"}</span>
+        </button>
+      )}
 
-      <div style={{ ...styles.panel, transform: open ? "translateX(0)" : `translateX(${PANEL_W}px)` }}>
+      <div
+        style={sheet
+          ? { ...styles.sheet, transform: open ? "translateY(0)" : "translateY(100%)", visibility: open ? "visible" : "hidden" }
+          : { ...styles.panel, transform: open ? "translateX(0)" : `translateX(${PANEL_W}px)` }}
+        aria-hidden={!open}
+      >
         <div style={styles.header}>
           <span style={styles.title}>SYNTH CHARACTER</span>
           <div style={styles.headerBtns}>
@@ -186,6 +205,7 @@ function Slider({ spec, value, changed, onChange }) {
 }
 
 const PANEL_W = 270;
+const SHEET_MAX_PX = 700; // below this width the panel is a bottom sheet
 
 const styles = {
   tab: {
@@ -226,6 +246,46 @@ const styles = {
     transition: "transform 0.28s ease",
     display: "flex",
     flexDirection: "column",
+  },
+  // Phone layout. The sheet sits above the HUD and spectrum panel while open
+  // (it is a deliberate overlay with its own close button), takes about half
+  // the screen, scrolls inside, and clears the home-indicator safe area.
+  sheetTab: {
+    position: "fixed",
+    right: "calc(12px + env(safe-area-inset-right, 0px))",
+    bottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+    zIndex: 20,
+    background: "rgba(14,16,26,0.88)",
+    border: "1px solid rgba(120,140,180,0.35)",
+    borderRadius: 4,
+    color: "rgba(180,200,235,0.9)",
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10,
+    letterSpacing: 2,
+    padding: "7px 12px",
+    cursor: "pointer",
+    backdropFilter: "blur(6px)",
+  },
+  sheet: {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "min(55vh, 480px)",
+    background: "rgba(10,12,20,0.95)",
+    borderTop: "1px solid rgba(120,140,180,0.3)",
+    borderRadius: "10px 10px 0 0",
+    backdropFilter: "blur(8px)",
+    color: "#c0c4d0",
+    fontFamily: "'IBM Plex Mono', monospace",
+    zIndex: 25,
+    transition: "transform 0.28s ease, visibility 0.28s",
+    display: "flex",
+    flexDirection: "column",
+    paddingBottom: "env(safe-area-inset-bottom, 0px)",
+    paddingLeft: "env(safe-area-inset-left, 0px)",
+    paddingRight: "env(safe-area-inset-right, 0px)",
+    boxShadow: "0 -12px 40px rgba(0,0,0,0.55)",
   },
   header: {
     display: "flex",
