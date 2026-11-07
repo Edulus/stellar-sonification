@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SPEC_MIN, SPEC_MAX } from "../audio/mappings.js";
 import { wlToRGB } from "../audio/color.js";
+import useMinWidth from "./useMinWidth.js";
+
+// Below this width the header can't fit name + controls on one line, so it
+// switches to a fixed stacked layout (see `stacked` styles below).
+const STACK_MAX_PX = 700;
 
 // Spectrum visualization (Phase 3) — ported from the prototype's SpectrumCanvas.
 // Renders the star's blackbody continuum with absorption dips, a visible-color
@@ -93,6 +98,11 @@ export default function SpectrumPanel({
   const canvasRef = useRef(null);
   const [width, setWidth] = useState(720);
   const [activeIdx, setActiveIdx] = useState(null);
+  // Phone layout: name on row 1, controls on row 2, line info on its own
+  // one-line row. Chosen by viewport width, never by content, so hovering a line
+  // (which changes the line-info text) can't change the header's height and
+  // shift the spectrum under the cursor — the flicker loop CLAUDE.md warns about.
+  const stacked = !useMinWidth(STACK_MAX_PX);
 
   // Label rows are computed before paint so the CANVAS can grow to fit them.
   // Previously this ran mid-paint and the plot area absorbed every stacked row
@@ -109,7 +119,7 @@ export default function SpectrumPanel({
   useLayoutEffect(() => {
     const measure = () => {
       const w = wrapRef.current?.clientWidth;
-      if (w) setWidth(Math.max(340, w - 24));
+      if (w) setWidth(Math.max(240, w - 24)); // 240, not 340: a 360 px phone's panel is ~310 px
     };
     measure();
     window.addEventListener("resize", measure);
@@ -248,16 +258,16 @@ export default function SpectrumPanel({
 
   return (
     <div ref={wrapRef} style={styles.wrap}>
-      <div style={styles.header}>
-        <div style={styles.headLeft}>
+      <div style={stacked ? { ...styles.header, ...styles.headerStacked } : styles.header}>
+        <div style={stacked ? { ...styles.headLeft, ...styles.headLeftStacked } : styles.headLeft}>
           <span style={{ ...styles.name, color: data.color }}>{data.name.toUpperCase()}</span>
-          <span style={styles.meta}>{data.type} · {data.temp}K{data.rv ? ` · RV ${data.rv > 0 ? "+" : ""}${data.rv}` : ""}</span>
+          <span style={styles.meta}>{data.type} · {data.temp}K{data.rv ? ` · RV\u00a0${data.rv > 0 ? "+" : ""}${data.rv}` : ""}</span>
           <span style={{ ...styles.badge, ...(data.dataSource === "curated" ? styles.badgeCurated : styles.badgeTemplate) }}>
             {data.dataSource}
           </span>
         </div>
-        <div style={styles.right}>
-          <span style={styles.lineInfo}>
+        <div style={stacked ? { ...styles.right, ...styles.rightStacked } : styles.right}>
+          <span style={stacked ? { ...styles.lineInfo, ...styles.lineInfoStacked } : styles.lineInfo}>
             {info
               ? `${info.el} · ${info.wl}nm · ${info.profile} · EW ${info.ew} · EP ${info.ep}eV`
               : "hover a line to inspect · click to sonify"}
@@ -311,7 +321,7 @@ export default function SpectrumPanel({
             style={{ ...styles.replay, ...(playing ? styles.replayOn : null) }}
             title={playing ? "Stop" : "Play this star"}
           >{playing ? "■" : "▶"}</button>
-          <button onClick={onClose} style={styles.close}>✕</button>
+          <button onClick={onClose} style={stacked ? { ...styles.close, marginLeft: "auto" } : styles.close}>✕</button>
         </div>
       </div>
       <canvas
@@ -389,6 +399,14 @@ const styles = {
     background: "rgba(120,150,200,0.22)", borderColor: "#5b86c4",
     color: "rgba(200,220,255,0.95)",
   },
+  // Stacked (phone) header overrides.
+  headerStacked: { flexDirection: "column", alignItems: "stretch", gap: 6 },
+  // May wrap (badge drops to a 2nd line on narrow phones). That depends only on
+  // the star's name, never on hover, so it can't feed the flicker loop.
+  headLeftStacked: { flexShrink: 0, whiteSpace: "normal", overflow: "visible", lineHeight: 1.6 },
+  rightStacked: { flexWrap: "wrap", justifyContent: "flex-start", rowGap: 6 },
+  // Its own full-width row at the end; single line, so its height is fixed.
+  lineInfoStacked: { order: 10, flexBasis: "100%" },
   close: {
     flexShrink: 0,
     background: "transparent", border: "1px solid rgba(120,140,180,0.3)",
