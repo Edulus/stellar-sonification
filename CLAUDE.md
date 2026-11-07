@@ -32,18 +32,18 @@ npm run verify:phoenix   # Python/browser-free: PHOENIX extraction helpers + NIS
 
 There is no lint step and no general test runner. The JavaScript `verify:*` scripts in `scripts/` are plain Node `.mjs` files; `verify:phoenix` runs `data-pipeline/verify_phoenix.py`. Playwright is not a declared dependency — it must be installed in the environment for the browser verifiers (the scripts `import "playwright"` as ESM, which ignores `NODE_PATH`; with a global install, symlink it into the git-ignored `node_modules/`). `verify:extract`, `verify:seed`, `verify:melody` and `verify:phoenix` are browser-free; `verify:engine`, `verify:slice`, `verify:tooltip`, `verify:sky` and `verify:melody-live` need `npm run dev` running first.
 
-## The engine must be built before the app runs
+## The engine artifacts are committed — rebuild only to change the engine
 
-The app will not work until the Stellarium Web Engine WASM artifacts exist in `public/engine/`. They are **git-ignored and not committed** — build them locally. This is the single biggest gotcha in the repo:
+The Stellarium Web Engine build (`public/engine/`) and the sky data (`public/skydata/`) are **committed**, so a fresh clone runs with `npm install && npm run dev`, and the GitHub Pages workflow (`.github/workflows/deploy.yml`, on every push to `main`) needs no toolchain. It is a **modified AGPL-3.0 build** (it exports the hover picker `core_get_obj_at`); the patch and upstream commit are in [NOTICE.md](NOTICE.md). Rebuilding is only needed to change the engine itself, and that is the single biggest gotcha in the repo:
 
 - Requires **Emscripten 1.39.17, pinned**. Newer Emscripten (3.x/4.x) removes runtime methods the engine's JS glue needs and fails at link.
 - **Do not use `make js` / SCons** — it is unusable on a Windows path with spaces. Use `stellarium-web-engine/build-direct.sh`, which drives `emcc` directly.
 - Full procedure (env vars, copy steps) is in [docs/BUILD.md](docs/BUILD.md). The cloned `stellarium-web-engine/` and `emsdk/` directories are build inputs, git-ignored, ~2 GB.
 
-Required artifacts (see [public/engine/README.md](public/engine/README.md) and [src/engine/config.js](src/engine/config.js)):
+Committed artifacts the app needs (see [public/engine/README.md](public/engine/README.md) and [src/engine/config.js](src/engine/config.js)):
 - `public/engine/stellarium-web-engine.{js,wasm}`
 - `public/engine/fonts/Roboto-{Regular,Bold}.ttf`
-- `public/skydata/` ← copied from the engine repo's `apps/test-skydata/` (`stars/` is the only subtree needed for a clickable sky)
+- `public/skydata/` — the engine repo's `apps/test-skydata/` (`stars/` is the only subtree needed for a clickable sky)
 
 ## Architecture (click → sound)
 
@@ -63,6 +63,7 @@ Three decoupled layers, wired together in [src/ui/App.jsx](src/ui/App.jsx):
 - **The canvas belongs to the engine, not React.** [src/ui/SkyCanvas.jsx](src/ui/SkyCanvas.jsx) hands the bare `<canvas>` to the bridge via a ref and never lets React re-render that node. The effect also guards against StrictMode's double-invoke spinning up two engines.
 - **`listObjs()` is broken; enumerate the sky by hand.** The engine's own `module.listObjs(obs, maxMag, filter)` returns **at most one object** no matter what is in view — the `SweObj` constructor clobbers the same `g_ret` global the wrapper's loop is iterating. Call `_module_list_objs2` with your own `addFunction` callback and **snapshot the pointer array before constructing any `SweObj`**; recipe + measured costs in [PHASE0-FINDINGS.md](PHASE0-FINDINGS.md) §11-B. `StellariumBridge.listVisibleStars()` does exactly this. The list is **every star in the tiles loaded so far, not the view** — it grows as you pan (~5,400 → ~13,900 to mag 8), and the on-screen filter is ours.
 - **Forward projection is JS, not engine.** The engine exports no RA/Dec→screen projection, so `StellariumBridge.projectToScreen(icrf)` re-derives the default stereographic one from the exported `convertFrame(obs, "ICRF", "VIEW", v)`. **`core.fov` spans the SHORT side of the canvas** (a long-side guess is off everywhere). Validated pixel-exact against the picker across aspect ratios ([MELODY-FINDINGS.md](MELODY-FINDINGS.md) §3). It assumes `PROJ_STEREOGRAPHIC` and no view flips; if either changes it breaks silently. The hover path still uses the inverse picker.
+- **Phone layout is chosen by viewport width, never by content.** [src/ui/useMinWidth.js](src/ui/useMinWidth.js) drives it: below 700 px the SYNTH panel is a bottom sheet (corner button) instead of a right-edge drawer, and the spectrum panel's header stacks (name / controls / line info). The top-left HUD is one wrapping column, and the centred hint joins it below 1440 px. Keep layout switches width-based: a header that wraps when the hover line-info text gets longer would shift the spectrum under the cursor (the flicker loop described under Chord mode).
 - **Selection is silent; playback is explicit.** `App.handleStarSelected` opens the spectrum and `stop()`s whatever was sounding, but starts nothing — the panel's ▶ (`handleReplay`) is the only way a click-selected star makes sound, and it flips to ■ while sounding. Switching SEQ↔CHORD is silent too. `scripts/verify-slice.mjs` asserts both halves (0 oscillators on select, >0 after ▶), so don't reintroduce auto-play without updating it. Hover mode is deliberately exempt — hovering still sounds immediately.
 - **`mappings.js` magic numbers are live-tunable.** They live in `DEFAULT_PARAMS`; the Synth Character panel ([src/ui/SynthPanel.jsx](src/ui/SynthPanel.jsx)) edits them and changes apply to the *next* note. Every mapping function takes an optional `p` (params) argument — keep that signature if you add one.
 - **Bundled catalog data is thin — and its ids are split.** `test-skydata` (vmag ≤ 7) carries B–V for every star and **no HD/Gaia ids and no spectral types**. HIP ids *are* present, but only on the stars that have **no** proper or Bayer/Flamsteed name: a star gets either a name (`Capella`, `* alf Aur`, `* 13 Aur`) **or** a bare `HIP 52425`, never both. So the bright stars you would want to resolve by HIP are exactly the ones missing it. Measured on a live view (~5,300 stars to mag 8): ~1,500 named/Bayer, ~3,760 HIP-only, 100% with B–V, 0% with spectral type. In practice bright stars resolve by name (tier 1) and everything else by B–V (tier 3); resolving *bright* stars by HIP needs a richer catalog (the `stellarium_star_catalogs` pipeline).
@@ -127,7 +128,8 @@ SEQ/CHORD/hover are bit-identical to before.
 ## Melody mode
 
 Plays a built-in preset ([src/melodies/presets.js](src/melodies/presets.js): Twinkle, Ode to
-Joy, Greensleeves, Jesu Joy of Man's Desiring) across the brightest stars in view. The brief and decisions are in
+Joy, Greensleeves, Jesu Joy of Man's Desiring) or an uploaded MIDI file across the brightest
+stars in view. The brief and decisions are in
 [MELODY-FINDINGS.md](MELODY-FINDINGS.md). Controls: MELODY row in the top-left HUD
 ([src/ui/MelodyControl.jsx](src/ui/MelodyControl.jsx)), wired in `App.handleMelodyPlay`.
 
@@ -170,10 +172,10 @@ Joy, Greensleeves, Jesu Joy of Man's Desiring) across the brightest stars in vie
   sanitised, bad notes dropped, rests merged/trimmed, whole-octave shift to fit MIDI 48–84
   then stragglers folded by octave, truncation at 2,000 notes. Never throws; returns
   `{ok, melody, report, errors}`. `App.addUserMelody(raw)` normalizes, appends under an
-  "Imported" group in the selector and selects it; exposed as `window.__addMelody` until
-  the upload UI exists. A MIDI importer only needs to produce one voice as
-  `{name, bpm, notes:[{midi, beats}]}`. Built-in presets must pass through unchanged
-  (verify:melody asserts it).
+  "Imported" group in the selector and selects it; the MIDI path (`handleImportMidi`) and
+  the test hook `window.__addMelody` both go through it. Any future source only needs to
+  produce one voice as `{name, bpm, notes:[{midi, beats}]}`. Built-in presets must pass
+  through unchanged (verify:melody asserts it).
 - **Exclusivity**: melody calls `stop()` first; anything else that calls `stop()` (CHORD/SEQ/
   SEED ▶, hover, selecting a star) ends the melody and resets its button via `onMelodyEnd`.
 

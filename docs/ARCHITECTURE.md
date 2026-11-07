@@ -110,6 +110,19 @@ PHASE0-FINDINGS.md §2–§3, §7–§8.
 
 The richer catalog pipeline can carry cross-identifiers, but the bundled catalog cannot support HIP-keyed lookup for the named bright stars. The current resolver therefore name/alias-matches curated bright stars and falls back through template data; richer catalog work remains a data-tier task.
 
+**Bulk star access (melody mode)**: the bridge can also list and place every star on screen,
+with no engine changes (MELODY-FINDINGS.md §1–3, §8):
+- `listVisibleStars({ aboveHorizonOnly, drawnOnly, limit })` enumerates with
+  `_module_list_objs2` and an `addFunction` callback. The engine's own `listObjs()` returns at
+  most one object, because its `SweObj` constructor clobbers the loop's global. The list is
+  every star in the tiles loaded so far, not the view, so the on-screen filter is ours.
+  `drawnOnly` also requires the picker to return the star, because at wide FOV the engine
+  doesn't draw faint stars.
+- `projectToScreen(icrf)` is a JS forward projection: stereographic, from
+  `convertFrame(obs, "ICRF", "VIEW", v)`, with `core.fov` spanning the short side of the
+  canvas. The engine exports no `project_to_win`. It assumes the default projection and no
+  view flips.
+
 **Important constraints**:
 - The engine owns the WebGL context on its canvas. Do NOT render other WebGL content on the same canvas.
 - Engine updates run on requestAnimationFrame. Keep the main thread responsive.
@@ -214,7 +227,7 @@ The current adapter does not interpolate numerically between neighboring spectra
 
 **Purpose**: Accept an absorption line list and produce audio via Web Audio API.
 
-**Design**: Extracted and generalized from `stellar-sonification.jsx`. The modular engine now owns single-line, sequential, harmonized-chord, seeded-piece, and hover playback paths.
+**Design**: Extracted and generalized from `stellar-sonification.jsx`. The modular engine now owns single-line, sequential, harmonized-chord, seeded-piece, hover, and multi-star melody playback paths.
 
 **Module structure**:
 
@@ -223,8 +236,24 @@ src/audio/
 ├── SonificationEngine.js   # Orchestrator: AudioContext, playback, hover registry
 ├── mappings.js              # Pure functions: wlToFreq, depthToGain, widthToQ, etc.
 ├── harmonize.js             # Re-export of the root harmonizer used by playChord
+├── seededMusic.js           # SEED composer (pure)
+├── envelope.js              # fitEnvelope: proportional ADSR fit for short notes
+├── color.js                 # wlToRGB, shared by spectrum, bands and melody rims
 └── reverb.js                # Algorithmic reverb builder (4-tap delay network)
+
+src/melodies/                # Melody mode (pure, browser-free)
+├── presets.js               # Built-in tunes { name, bpm, notes:[{midi, beats}] }
+├── melody.js                # Star assignment, honest-mode planning, drift stats
+├── normalize.js             # normalizeMelody: landing point for imported tunes
+└── midi.js                  # Standard MIDI File parser + single-voice extraction
 ```
+
+**Melody mode** (`playMelody(plan, {getPos})`) plays a tune across several stars. The melody
+sets each note's pitch; the star's strongest-EW line sets the timbre through the usual
+mappings; `magToGain` (visual magnitude → dB) scales each star's volume. Notes are scheduled
+off one audio-clock start, use `_buildVoice(..., {envFit: "proportional"})`, and emit
+`melodyNote` events that the band overlay draws as two-colour pulses: a tone-coloured rim
+(`freqToWl` → `wlToRGB`) and a star-coloured glow.
 
 **SonificationEngine API**:
 
@@ -287,7 +316,7 @@ This topology still describes each chord voice through oscillator bank → filte
 - Each oscillator gets `detune = rv * 0.2` applied (radial velocity)
 - Oscillator gains are mixed by excitation potential: fundamental gets `1.0 - harmonic * 0.3`, 2nd harmonic gets `min(harmonic * 0.5, 0.4)`, etc.
 - ADSR times are in seconds: Gaussian {a:0.06, d:0.1, s:0.7, r:0.06}, Lorentzian {a:0.01, d:0.05, s:0.8, r:0.35}, Voigt {a:0.03, d:0.08, s:0.75, r:0.18}
-- Tone duration is fixed at 1.2 seconds
+- Tone duration defaults to 1.2 seconds (`params.toneDuration`, tunable in the Synth panel); `playLine(line, rv, duration)` and melody notes take an explicit length
 - Sequence playback has 80ms gap between tones
 - Old nodes must be stopped before new ones start (prevents buildup)
 
@@ -301,7 +330,8 @@ This topology still describes each chord voice through oscillator bank → filte
 - playback mode and spectrum highlight state;
 - sonification parameter state;
 - observer location, ground visibility, and engine-ready state;
-- hover-audio and hover-tooltip state.
+- hover-audio and hover-tooltip state;
+- melody state: selected tune, imported tunes (with their parsed MIDI source, for voice switching), HONEST toggle, playing flag and status line.
 
 There is no `showParamMapping` state and no runtime `'survey'` data-source value in the current app.
 
@@ -309,11 +339,13 @@ There is no `showParamMapping` state and no runtime `'survey'` data-source value
 
 - `App.jsx`: Root layout/state; owns one `StarDataResolver` and one `SonificationEngine`, resolves selection/hover data, and coordinates playback/UI state
 - `SkyCanvas.jsx`: Mounts Stellarium engine and forwards normalized selection/hover events from the bridge
-- `SpectrumPanel.jsx`: Displays selected-star identity/data-source, renders the absorption spectrum, exposes SEQ/CHORD/SEED controls, and lets users inspect/click individual lines
-- `SynthPanel.jsx`: Live controls for sonification mapping parameters
+- `SpectrumPanel.jsx`: Displays selected-star identity/data-source, renders the absorption spectrum, exposes SEQ/CHORD/SEED controls, and lets users inspect/click individual lines. Below 700 px its header stacks into fixed rows
+- `SynthPanel.jsx`: Live controls for sonification mapping parameters. A right-edge drawer, or a bottom sheet below 700 px
+- `MelodyControl.jsx`: The MELODY row: tune selector (built-in and imported), ▶/■, HONEST, "+ MIDI", and a VOICE picker for multi-track MIDI files
+- `useMinWidth.js`: Viewport-width hook behind every phone/desktop layout switch
 - `ObjectTooltip.jsx`: Type-agnostic metadata for the currently hovered sky object
 - `LocationPicker.jsx`, `GroundToggle.jsx`, `TimeControl.jsx`: Observer/sky controls
-- `RingOverlay.jsx`: Audio-derived ripple-band visualization over the engine canvas
+- `RingOverlay.jsx`: Audio-derived ripple-band visualization over the engine canvas, including melody pulses, which re-project their star every frame so they follow pans
 
 There is no dedicated `StarInfoPanel.jsx` or `ParamMappingPanel.jsx` in the current app. Their originally planned responsibilities are partly covered by `SpectrumPanel`, `ObjectTooltip`, and `SynthPanel`.
 
@@ -352,6 +384,26 @@ There is no dedicated `StarInfoPanel.jsx` or `ParamMappingPanel.jsx` in the curr
 ```
 
 Hover audio uses the same resolver: `App.jsx` resolves the hovered star, then passes that returned object to `startHoverChord` or `startHoverSequence`.
+
+## Data Flow (Melody ▶)
+
+```
+1. User presses ▶ in the MELODY row (a built-in tune, or one imported via "+ MIDI":
+   parseMidi → midiToMelody → normalizeMelody)
+      │
+2. App.handleMelodyPlay stops any other playback, then calls
+   bridge.listVisibleStars({ drawnOnly: true, limit: N })  (N = the tune's distinct pitches)
+      │
+3. Each of those N stars goes through the same StarDataResolver
+      │
+4. melody.js assignStars: N brightest → coolest first → paired with the pitches low to high
+   (ties: B-V desc → HIP → name; fewer stars than pitches → cycle). Locked for the run.
+      │
+5. melody.js planMelody: timed events (honest mode: nearest real line pitch instead)
+      │
+6. SonificationEngine.playMelody schedules the notes and emits melodyNote; RingOverlay pulses
+   each star, re-projecting it with bridge.projectToScreen every frame
+```
 
 ## Integration Patterns
 
@@ -433,6 +485,8 @@ The verified build is documented in [`BUILD.md`](BUILD.md) and [`../PHASE0-FINDI
 - use `stellarium-web-engine/build-direct.sh` rather than SCons / `make js`;
 - copy the resulting `stellarium-web-engine.{js,wasm}` into `public/engine/`;
 - serve fonts and `public/skydata/` separately. The bridge registers skydata sources at runtime with `addDataSource(...)`.
+
+**Committed artifacts**: the built `public/engine/` files (a modified AGPL-3.0 build; see `NOTICE.md`) and `public/skydata/` are committed, so the app builds without the toolchain. `.github/workflows/deploy.yml` builds and publishes `dist/` to GitHub Pages on every push to `main`. Rebuild the engine only to change it.
 
 **Note on the engine repo**: `Stellarium/stellarium-web-engine` is AGPL-3.0 licensed. The `apps/web-frontend/` directory contains a Vue-based frontend that serves as the reference implementation for JS API usage. The `doc/internals.md` documents the C-level object model and attribute system surfaced through Emscripten.
 

@@ -174,6 +174,39 @@ different chords; sequential mode is unchanged.
 
 ---
 
+## Phase 2.6 — Melody Mode ✅ COMPLETE
+
+**Goal**: Play a melody across the stars in view: each star sings one pitch, in its own
+timbre, and pulses while its note sounds. Brief: [`MELODY-MODE-BRIEF.md`](../MELODY-MODE-BRIEF.md);
+findings and decisions: [`MELODY-FINDINGS.md`](../MELODY-FINDINGS.md).
+
+### What was built
+
+- [x] Gate 1: visible-star enumeration through the bridge, with no engine changes. Uses
+      `_module_list_objs2`, a JS forward projection validated against the picker, and a
+      drawn-only check, because the engine skips faint stars at wide FOV.
+- [x] Presets: Twinkle, Ode to Joy, Greensleeves, Jesu Joy of Man's Desiring.
+- [x] Assignment: N brightest drawn stars, coolest on the lowest pitch, locked at ▶.
+- [x] Timbre from each star's strongest line; brightness → volume (`magToGain`).
+- [x] Variable note length (`playLine` duration; proportional ADSR fit).
+- [x] Two-colour pulses: tone-coloured rim, star-coloured glow; they follow pans.
+- [x] Honest mode: each note sung by the nearest real line pitch, with a drift report.
+- [x] MIDI upload: dependency-free parser, single-voice extraction with a VOICE picker,
+      tempo map honoured, normalized into range.
+- [x] Phone layout pass: wrapping HUD, SYNTH bottom sheet, stacked spectrum header.
+- [x] `verify:melody` (unit) and `verify:melody-live` (browser).
+
+### Open
+
+- Pitch bend is ignored, so retuned or microtonal MIDI files play in 12-TET.
+- Imported tunes don't survive a reload.
+- Same-template and neighbouring-class stars (e.g. A0V vs A1V) sound nearly alike at the
+  same note. This needs richer spectral data (Phase 4).
+- Honest mode tends to use only about 2 stars, because templates share 17 wavelengths and
+  ties go to the cooler star.
+
+---
+
 ## Phase 3 — Spectrum Visualization
 
 **Goal**: When a star is selected, display its absorption spectrum alongside the sky.
@@ -257,7 +290,7 @@ different chords; sequential mode is unchanged.
 - [ ] Comparison mode: select two stars, hear them side by side
 - [ ] Audio controls: master volume, playback speed, pitch range adjustment
 - [ ] Keyboard shortcuts: space=play/stop, arrows=cycle lines, tab=next star
-- [ ] Mobile: responsive layout, touch events, address orientation
+- [ ] Mobile: responsive layout, touch events, address orientation (partly done in Phase 2.6: wrapping HUD, SYNTH bottom sheet, stacked spectrum header below 700 px; touch hover and orientation remain)
 - [ ] Loading states: engine WASM download progress, first-render indicator
 - [ ] About/help overlay explaining the sonification mapping
 - [ ] Share: generate URL with star ID + view parameters for direct links

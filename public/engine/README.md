@@ -17,6 +17,6 @@ These are the output of `build-direct.sh` in the stellarium-web-engine repo
 AGPL-3.0 build) so the app builds and deploys without the ~2 GB Emscripten
 toolchain. Rebuild locally only if you need to change the engine itself.
 
-The runtime star catalog + sky data goes in `public/skydata/` (copy the engine
-repo's `apps/test-skydata/` contents there). `stars/` is the only subtree
+The runtime star catalog and sky data in `public/skydata/` (the engine repo's
+`apps/test-skydata/` contents) are committed too. `stars/` is the only subtree
 required for a clickable sky.
