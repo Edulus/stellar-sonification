@@ -18,6 +18,7 @@ import {
   assignStars, distinctPitches, planMelody, driftStats, midiToFreq, strongestLine,
 } from "../src/melodies/melody.js";
 import { magToGain, wlToFreq, freqToWl, DEFAULT_PARAMS, profileToEnvelope } from "../src/audio/mappings.js";
+import { normalizeMelody, describeNormalization, MELODY_LIMITS } from "../src/melodies/normalize.js";
 import { fitEnvelope } from "../src/audio/envelope.js";
 
 let fails = 0;
@@ -26,7 +27,7 @@ const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
 
 // 1. presets
 const names = MELODY_PRESETS.map((p) => p.name);
-ok(names.join("|") === "Twinkle Twinkle Little Star|Ode to Joy|Greensleeves", `three presets: ${names.join(", ")}`);
+ok(names.join("|") === "Twinkle Twinkle Little Star|Ode to Joy|Greensleeves|Jesu, Joy of Man's Desiring", `four presets: ${names.join(", ")}`);
 for (const p of MELODY_PRESETS) {
   const inRange = p.notes.every((n) => n.midi === null || (Number.isInteger(n.midi) && n.midi >= 48 && n.midi <= 84));
   const lens = p.notes.every((n) => n.beats > 0);
@@ -35,6 +36,37 @@ for (const p of MELODY_PRESETS) {
     `${p.name}: ${p.notes.length} notes, ${distinctPitches(p).length} distinct pitches, range ${Math.min(...distinctPitches(p))}–${Math.max(...distinctPitches(p))}, single voice`);
 }
 ok(distinctPitches(MELODY_PRESETS[0]).join() === "60,62,64,65,67,69", "Twinkle pitches are C D E F G A (6)");
+const jesu = MELODY_PRESETS[3];
+const jesuBeats = jesu.notes.reduce((s, n) => s + n.beats, 0);
+ok(distinctPitches(jesu).join() === "62,66,67,69,71,72,74,76,78,79" && jesuBeats === 36 && jesu.notes.slice(0, -1).every((n) => n.beats === 0.5),
+  `Jesu: 10 pitches (D4–G5), eighth-note triplet line, ${jesuBeats / 4.5} bars of 9/8, ends on a held G`);
+ok(jesu.notes[jesu.notes.length - 1].midi === 67, "Jesu closes on G4 (tonic)");
+
+// 1b. normalizeMelody — the landing point for imported (MIDI) melodies
+ok(MELODY_PRESETS.every((p) => { const r = normalizeMelody(p); return r.ok && JSON.stringify(r.melody) === JSON.stringify(p) && describeNormalization(r.report) === "no changes needed"; }),
+  "every built-in preset passes through the normalizer unchanged");
+const low = normalizeMelody({ name: "Bass line", bpm: 90, notes: [{ midi: 28, beats: 1 }, { midi: 31, beats: 1 }, { midi: 35, beats: 1 }, { midi: 40, beats: 2 }] });
+ok(low.ok && low.report.transposedBy === 24 && low.melody.notes.map((n) => n.midi).join() === "52,55,59,64" && low.report.folded === 0,
+  `too-low tune moves up whole octaves (${describeNormalization(low.report)})`);
+const wide = normalizeMelody({ name: "Wide", bpm: 120, notes: [{ midi: 40, beats: 1 }, { midi: 60, beats: 1 }, { midi: 96, beats: 1 }] });
+// 40/60/96: shifting down an octave keeps 2 of 3 in range (48, 84), so that
+// wins; the remaining note (28) folds up to 52.
+ok(wide.ok && wide.report.transposedBy === -12 && wide.report.folded === 1 && wide.melody.notes.map((n) => n.midi).join() === "52,48,84",
+  `wider than 3 octaves: octave shift keeping the most notes, then stragglers folded (${wide.melody.notes.map((n) => n.midi).join(", ")})`);
+const messy = normalizeMelody({ name: "  ", bpm: 9999, notes: [
+  { midi: null, beats: 1 }, { midi: 60.4, beats: 1 }, { midi: 62, beats: 0 }, { midi: "x", beats: 0.5 }, { midi: null, beats: 0.5 },
+  { midi: 64, beats: -1 }, { midi: 64, beats: 1 }, { beats: 2 }, null] });
+ok(messy.ok && messy.melody.name === "Untitled melody" && messy.melody.bpm === 100 &&
+  JSON.stringify(messy.melody.notes) === JSON.stringify([{ midi: 60, beats: 1 }, { midi: null, beats: 1 }, { midi: 64, beats: 1 }]),
+  "messy input: default name/tempo, bad lengths dropped, pitch rounded, rests merged and trimmed");
+ok(!normalizeMelody({ notes: [{ midi: null, beats: 1 }] }).ok && !normalizeMelody(null).ok && !normalizeMelody({ notes: "nope" }).ok,
+  "no playable notes or no note list → ok:false with a reason, never a throw");
+const long = normalizeMelody({ name: "Long", bpm: 120, notes: Array.from({ length: 2500 }, (_, i) => ({ midi: 60 + (i % 12), beats: 0.25 })) });
+ok(long.ok && long.melody.notes.length === MELODY_LIMITS.maxNotes && long.report.truncated === 500, "over-long input truncated at maxNotes, and reported");
+const big = normalizeMelody({ name: "Chromatic", bpm: 120, notes: Array.from({ length: 30 }, (_, i) => ({ midi: 50 + i, beats: 0.5 })) });
+const bigAssign = assignStars(Array.from({ length: 12 }, (_, i) => ({ key: `s${i}`, name: `s${i}`, magnitude: i, temp: 3000 + i * 1000, lines: [] })), big.melody);
+ok(big.ok && big.report.distinctPitches === 30 && bigAssign.fallback && bigAssign.byPitch.size === 30,
+  "an imported tune with more pitches (30) than stars (12) still plays via the cycling fallback");
 
 // 2. magToGain
 const db = (g) => 20 * Math.log10(g);

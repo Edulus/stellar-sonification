@@ -296,6 +296,36 @@ try {
   for (const r of fallbackRows) console.log("        " + r);
 
 
+  // ── Jesu preset + the import path (groundwork for MIDI upload) ──────────
+  await setView(50, 1.2, 0); await sleep(2000);
+  await setHonest(false);
+  await setPreset(3); await sleep(100);
+  await click("Play melody"); await sleep(400);
+  const js = await melodySummary();
+  const jd = await assignedDrawn(page);
+  ok(js.preset === "Jesu, Joy of Man's Desiring" && js.available === 10 && jd.drawn === 10,
+    `Jesu plays across ${js.available}/10 stars, ${jd.drawn} drawn; first note ${js.durs[0].toFixed(3)} s (eighth at 84 bpm)`);
+  await click("Stop melody"); await sleep(200);
+  const added = await page.evaluate(() => {
+    const r = window.__addMelody({ name: "Imported bass line", bpm: 90, notes: [
+      { midi: 28, beats: 1 }, { midi: 31, beats: 1 }, { midi: 35, beats: 1 }, { midi: null, beats: 0.5 }, { midi: 40, beats: 2 }] });
+    return { ok: r.ok, shift: r.report.transposedBy };
+  });
+  await sleep(300);
+  const ui = await page.evaluate(() => {
+    const sel = document.querySelector('select[aria-label="Melody preset"]');
+    const group = [...sel.querySelectorAll("optgroup")].map((g) => g.label);
+    return { value: sel.value, selected: sel.options[sel.selectedIndex]?.textContent, group,
+      status: [...document.querySelectorAll("div")].map((d) => d.textContent).find((t) => /^Added "Imported bass line"/.test(t)) || "" };
+  });
+  ok(added.ok && added.shift === 24 && ui.selected === "Imported bass line" && ui.group.join() === "Built-in,Imported" && /moved up 2 octaves/.test(ui.status),
+    `import hook: melody normalized (up 2 octaves), listed under "Imported" and selected; status "${ui.status}"`);
+  await click("Play melody"); await sleep(400);
+  const im = await melodySummary();
+  ok(im.preset === "Imported bass line" && im.needed === 4 && im.available === 4 && im.pitchToStar.map(([p]) => p).sort((a, b) => a - b).join() === "52,55,59,64",
+    "imported melody plays: 4 pitches (E3 G3 B3 E4 after the shift) on 4 stars");
+  await click("Stop melody"); await sleep(200);
+
   // ── drawn-only on a phone viewport at wide FOV (12-pitch Greensleeves) ──
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   phone.on("pageerror", (e) => errors.push("phone: " + e.message));

@@ -57,6 +57,22 @@ const greensleeves = {
   ],
 };
 
-export const MELODY_PRESETS = [twinkle, ode, greensleeves];
+// Jesu, Joy of Man's Desiring (J. S. Bach, BWV 147, 1723; G major, 9/8).
+// The flowing triplet theme: its first four bars, then the first three again
+// closing on a held G, so the excerpt ends at home. An excerpt, not the full
+// movement. Each note is an eighth (0.5 quarter-note beats); bpm counts
+// quarters, so a 9/8 bar of three triplet groups is 4.5 beats. Ten distinct
+// pitches: D4 F#4 G4 A4 B4 C5 D5 E5 F#5 G5.
+const jesuBar1 = [N(G4, 0.5), N(A4, 0.5), N(B4, 0.5), N(D5, 0.5), N(C5, 0.5), N(C5, 0.5), N(E5, 0.5), N(D5, 0.5), N(D5, 0.5)];
+const jesuBar2 = [N(G5, 0.5), N(Fs5, 0.5), N(G5, 0.5), N(D5, 0.5), N(B4, 0.5), N(G4, 0.5), N(A4, 0.5), N(B4, 0.5), N(C5, 0.5)];
+const jesuBar3 = [N(D5, 0.5), N(E5, 0.5), N(D5, 0.5), N(C5, 0.5), N(B4, 0.5), N(A4, 0.5), N(B4, 0.5), N(G4, 0.5), N(Fs4, 0.5)];
+const jesuBar4 = [N(G4, 0.5), N(A4, 0.5), N(D4, 0.5), N(Fs4, 0.5), N(A4, 0.5), N(C5, 0.5), N(B4, 0.5), N(A4, 0.5), N(B4, 0.5)];
+const jesu = {
+  name: "Jesu, Joy of Man's Desiring",
+  bpm: 84,
+  notes: [...jesuBar1, ...jesuBar2, ...jesuBar3, ...jesuBar4, ...jesuBar1, ...jesuBar2, ...jesuBar3, N(G4, 4.5)],
+};
+
+export const MELODY_PRESETS = [twinkle, ode, greensleeves, jesu];
 
 export default MELODY_PRESETS;

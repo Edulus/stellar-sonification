@@ -127,7 +127,7 @@ SEQ/CHORD/hover are bit-identical to before.
 ## Melody mode
 
 Plays a built-in preset ([src/melodies/presets.js](src/melodies/presets.js): Twinkle, Ode to
-Joy, Greensleeves) across the brightest stars in view. The brief and decisions are in
+Joy, Greensleeves, Jesu Joy of Man's Desiring) across the brightest stars in view. The brief and decisions are in
 [MELODY-FINDINGS.md](MELODY-FINDINGS.md). Controls: MELODY row in the top-left HUD
 ([src/ui/MelodyControl.jsx](src/ui/MelodyControl.jsx)), wired in `App.handleMelodyPlay`.
 
@@ -156,6 +156,15 @@ Joy, Greensleeves) across the brightest stars in view. The brief and decisions a
   mode exactly the line's own colour) and the glow behind it is the **star's** display colour.
   Hover/SEQ/CHORD bands are unchanged (one colour, the line's). `stop()` emits `starStopped`
   per melody star, which clears them.
+- **Imported melodies (MIDI groundwork)**: anything not in `presets.js` goes through
+  [src/melodies/normalize.js](src/melodies/normalize.js) `normalizeMelody(raw)`: name/bpm
+  sanitised, bad notes dropped, rests merged/trimmed, whole-octave shift to fit MIDI 48–84
+  then stragglers folded by octave, truncation at 2,000 notes. Never throws; returns
+  `{ok, melody, report, errors}`. `App.addUserMelody(raw)` normalizes, appends under an
+  "Imported" group in the selector and selects it; exposed as `window.__addMelody` until
+  the upload UI exists. A MIDI importer only needs to produce one voice as
+  `{name, bpm, notes:[{midi, beats}]}`. Built-in presets must pass through unchanged
+  (verify:melody asserts it).
 - **Exclusivity**: melody calls `stop()` first; anything else that calls `stop()` (CHORD/SEQ/
   SEED ▶, hover, selecting a star) ends the melody and resets its button via `onMelodyEnd`.
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useEffect, useRef, useState } from "react";
 import SkyCanvas from "./SkyCanvas.jsx";
 import SynthPanel from "./SynthPanel.jsx";
 import SpectrumPanel from "./SpectrumPanel.jsx";
@@ -10,6 +10,7 @@ import ObjectTooltip from "./ObjectTooltip.jsx";
 import MelodyControl from "./MelodyControl.jsx";
 import useMinWidth from "./useMinWidth.js";
 import { MELODY_PRESETS } from "../melodies/presets.js";
+import { normalizeMelody, describeNormalization } from "../melodies/normalize.js";
 import { assignStars, distinctPitches, planMelody, driftStats } from "../melodies/melody.js";
 import { SonificationEngine } from "../audio/SonificationEngine.js";
 import { StarDataResolver } from "../data/StarDataResolver.js";
@@ -67,7 +68,11 @@ export default function App() {
   const [hoverTarget, setHoverTarget] = useState(null);   // {info, x, y, key}
 
   // Melody mode: a preset played across the brightest stars in view.
-  const [melodyPreset, setMelodyPreset] = useState(0);
+  const [melodyPreset, setMelodyPreset] = useState(0); // index into `melodies`
+  // Melodies from outside presets.js (the planned MIDI upload lands here, after
+  // normalizeMelody). The selector lists presets first, then these.
+  const [userMelodies, setUserMelodies] = useState([]);
+  const melodies = useMemo(() => [...MELODY_PRESETS, ...userMelodies], [userMelodies]);
   const [melodyHonest, setMelodyHonest] = useState(false);
   const [melodyPlaying, setMelodyPlaying] = useState(false);
   const [melodyStatus, setMelodyStatus] = useState(null); // {text, warn}
@@ -288,7 +293,7 @@ export default function App() {
     engine.stop();
     engine.ensureContext(); // this click is the user gesture
 
-    const preset = MELODY_PRESETS[melodyPreset];
+    const preset = melodies[melodyPreset] ?? MELODY_PRESETS[0];
     const n = distinctPitches(preset).length;
     // The N brightest stars the engine is actually drawing (on screen is not
     // enough at wide FOV — MELODY-FINDINGS §8-B). Only those N can be assigned,
@@ -326,7 +331,31 @@ export default function App() {
       : `${assignment.available} stars · coolest ${assignment.stars[0].name} → hottest ${assignment.stars[assignment.stars.length - 1].name}`;
     const extra = drift ? ` · drift avg ${drift.meanAbs.toFixed(1)} st, max ${drift.maxAbs.toFixed(1)}` : "";
     setMelodyStatus({ text: base + extra, warn: assignment.fallback });
-  }, [cutHoverAudio, melodyPreset, melodyHonest]);
+  }, [cutHoverAudio, melodies, melodyPreset, melodyHonest]);
+
+  // Add a melody from outside the presets (the hook a MIDI importer will call
+  // with its single-voice { name, bpm, notes }). Normalizes it, appends it to
+  // the selector, selects it, and reports what was changed. Returns the
+  // normalizer's result so a caller can show errors.
+  const addUserMelody = useCallback((raw) => {
+    const result = normalizeMelody(raw);
+    if (!result.ok) {
+      setMelodyStatus({ text: `Couldn't add melody: ${result.errors.join(" ")}`, warn: true });
+      return result;
+    }
+    setUserMelodies((prev) => {
+      setMelodyPreset(MELODY_PRESETS.length + prev.length); // select the new one
+      return [...prev, result.melody];
+    });
+    const r = result.report;
+    setMelodyStatus({
+      text: `Added "${result.melody.name}": ${r.notes} notes, ${r.distinctPitches} pitches, ${Math.round(r.durationSec)} s · ${describeNormalization(r)}`,
+      warn: r.folded > 0 || r.truncated > 0,
+    });
+    return result;
+  }, []);
+  // Debug/test hook until the upload UI exists (mirrors window.__engine).
+  useEffect(() => { window.__addMelody = addUserMelody; }, [addUserMelody]);
 
   // Melody ■: halt audio and clear every pulse (stop() → starStopped per star).
   const handleMelodyStop = useCallback(() => {
@@ -380,6 +409,8 @@ export default function App() {
         <div style={styles.melodyBar}>
           <MelodyControl
           disabled={!bridgeReady}
+          melodies={melodies}
+          presetCount={MELODY_PRESETS.length}
           presetIndex={melodyPreset}
           onPresetChange={setMelodyPreset}
           honest={melodyHonest}

@@ -6,11 +6,13 @@
 // A one-line status shows how many stars were assigned and flags the
 // "fewer stars than pitches" fallback.
 
-import { MELODY_PRESETS } from "../melodies/presets.js";
-
+// `melodies` is presets first, then imported melodies (presetCount splits
+// them); imported ones appear under their own heading in the selector.
 export default function MelodyControl({
-  disabled, presetIndex, onPresetChange, honest, onHonestChange, playing, onPlay, onStop, status,
+  disabled, melodies, presetCount, presetIndex, onPresetChange, honest, onHonestChange, playing, onPlay, onStop, status,
 }) {
+  const presets = melodies.slice(0, presetCount);
+  const imported = melodies.slice(presetCount);
   return (
     <div style={S.wrap}>
       <div style={S.row}>
@@ -21,7 +23,18 @@ export default function MelodyControl({
           style={S.select}
           aria-label="Melody preset"
         >
-          {MELODY_PRESETS.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
+          {imported.length ? (
+            <>
+              <optgroup label="Built-in">
+                {presets.map((p, i) => <option key={`p${i}`} value={i}>{p.name}</option>)}
+              </optgroup>
+              <optgroup label="Imported">
+                {imported.map((p, i) => <option key={`u${i}`} value={presetCount + i}>{p.name}</option>)}
+              </optgroup>
+            </>
+          ) : (
+            presets.map((p, i) => <option key={`p${i}`} value={i}>{p.name}</option>)
+          )}
         </select>
         <button
           onClick={playing ? onStop : onPlay}

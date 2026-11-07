@@ -257,3 +257,47 @@ pulse now carries two colours:
 Hover, sequence and chord bands are unchanged: one colour, the line's. `verify:melody` checks
 that `freqToWl` inverts `wlToFreq`. `verify:melody-live` checks that every pulse's rim is
 its note's tone, its glow is its star's colour, and the drawn bands match both.
+
+## 10. Jesu preset and MIDI groundwork (2026-11-07)
+
+**Jesu, Joy of Man's Desiring** (Bach, BWV 147) is the fourth preset. It is the triplet
+theme in G major, 9/8: the first four bars, then the first three again closing on a held G.
+That is 64 notes and 8 bars, about 26 s at 84 bpm, with 10 distinct pitches (D4–G5), so it
+needs 10 stars. It is transcribed from memory, like the other three; worth a listen against
+a recording.
+
+**MIDI groundwork, built:**
+- `normalizeMelody(raw)` in `src/melodies/normalize.js` is the single landing point for
+  non-preset melodies. Its rules are in the file header. Every built-in preset passes
+  through unchanged.
+- The selector now lists presets and then imported melodies. `addUserMelody` in `App.jsx`
+  (exposed as `window.__addMelody`) normalizes a melody, adds it, selects it and reports
+  what changed.
+- `verify:melody` covers the normalizer's rules. `verify:melody-live` adds a melody through
+  the hook and plays it.
+
+**Not built (the MIDI brief should decide):**
+1. **Parsing a Standard MIDI File.** It is about 150 lines of dependency-free JS (header,
+   tracks, variable-length deltas, note on/off, tempo meta, running status). Raw Web Audio
+   is a project rule; whether a parser library is acceptable is your call.
+2. **Picking one voice from a multi-track or polyphonic file.** Options: highest note
+   ("skyline"), let the user pick the track, or the busiest track.
+3. **Quantizing note lengths** (none, or to the nearest 16th) and handling overlapping
+   notes within a voice.
+4. **Tempo changes mid-file.** Use the first tempo, or bake changes into the beat lengths.
+5. **Many distinct pitches.** Imported tunes can have far more pitches than there are stars
+   in view (a chromatic run of 30 needs 30 stars). The cycling fallback still plays, but a
+   cap or a "fold to N pitches" option may be wanted.
+6. **The upload UI:** a file picker in the MELODY row, a size limit, and error messages.
+7. **Persistence:** imported melodies currently last only until the page reloads.
+
+### Drift item: criterion 5 also fails for neighbouring classes
+
+On 2026-11-07 the live sky put **Castor (A0V template) and Sirius (A1V, curated)** in the
+same Twinkle assignment. At the same note they differ by only 1.4 dB, with a harmonic
+distance of 0.019 and an envelope distance of 0.39, below the thresholds
+`verify:melody-live` uses for "clearly different". Both are white stars whose strongest
+line is a Balmer line, so this is physics, not a bug. D2 (shared templates) extends to
+neighbouring classes. Earlier runs passed only because no such pair was in view. The test
+is left strict, so it can fail depending on the sky, and the limitation is reported rather
+than masked.
