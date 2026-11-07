@@ -64,7 +64,7 @@ export default function MelodyControl({
         <button
           onClick={() => fileRef.current?.click()}
           style={S.button(false, false)}
-          title="Import a melody from a MIDI file (.mid)"
+          title="Import a melody from a MIDI file (.mid; also .rmi and BinHex .hqx)"
           aria-label="Import MIDI file"
         >
           + MIDI
@@ -72,7 +72,7 @@ export default function MelodyControl({
         <input
           ref={fileRef}
           type="file"
-          accept=".mid,.midi,.kar,audio/midi,audio/x-midi"
+          accept=".mid,.midi,.kar,.rmi,.hqx,audio/midi,audio/x-midi"
           style={{ display: "none" }}
           aria-label="MIDI file"
           onChange={(e) => {

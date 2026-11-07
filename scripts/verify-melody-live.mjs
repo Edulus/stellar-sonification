@@ -15,6 +15,7 @@
 // Needs `npm run dev` running + Playwright (same as verify:slice).
 import { chromium } from "playwright";
 import { smf, tempo, name as trackName, on, off } from "./lib/smf.mjs";
+import { binhex } from "./lib/binhex.mjs";
 
 const url = process.argv[2] || "http://localhost:5173/";
 const browser = await chromium.launch({
@@ -362,6 +363,16 @@ try {
     ok(fm.pitchToStar.map(([p]) => p).sort((a, b) => a - b).join() === "79,81,83" && /voice: Flute/.test(switched),
       "switching the voice to Flute re-extracts the melody in place (G5 A5 B5)");
     await click("Stop melody"); await sleep(200);
+    // A BinHex-wrapped file (classic Mac .hqx), through the same picker.
+    const hqx = Buffer.from(binhex(smf({ format: 0, ppq: Q, tracks: [[[0, ...tempo(80)], [0, ...on(0, 64)], [Q, ...off(0, 64)], [0, ...on(0, 67)], [Q, ...off(0, 67)]]] }), { name: "Old Song.mid" }));
+    await page.setInputFiles('input[aria-label="MIDI file"]', { name: "Old Song.hqx", mimeType: "application/mac-binhex40", buffer: hqx });
+    await sleep(400);
+    const hq = await page.evaluate(() => {
+      const sel = document.querySelector('select[aria-label="Melody preset"]');
+      return { selected: sel.options[sel.selectedIndex]?.textContent,
+        status: [...document.querySelectorAll("div")].map((d) => d.textContent).find((t) => /^Added "Old Song"/.test(t)) || "" };
+    });
+    ok(hq.selected === "Old Song" && /unwrapped from BinHex 4\.0 \(Old Song\.mid\)/.test(hq.status), `BinHex .hqx upload unwrapped and added: "${hq.status}"`);
     await page.setInputFiles('input[aria-label="MIDI file"]', { name: "notes.txt.mid", mimeType: "audio/midi", buffer: Buffer.from("not a midi file at all") });
     await sleep(400);
     const bad = await page.evaluate(() => [...document.querySelectorAll("div")].map((d) => d.textContent).find((t) => /^Couldn't import/.test(t)) || "");

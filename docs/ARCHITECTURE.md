@@ -245,7 +245,8 @@ src/melodies/                # Melody mode (pure, browser-free)
 ├── presets.js               # Built-in tunes { name, bpm, notes:[{midi, beats}] }
 ├── melody.js                # Star assignment, honest-mode planning, drift stats
 ├── normalize.js             # normalizeMelody: landing point for imported tunes
-└── midi.js                  # Standard MIDI File parser + single-voice extraction
+├── midi.js                  # Standard MIDI File parser + single-voice extraction
+└── container.js             # Unwraps BinHex .hqx / RIFF .rmi / MacBinary down to the SMF
 ```
 
 **Melody mode** (`playMelody(plan, {getPos})`) plays a tune across several stars. The melody

@@ -21,6 +21,8 @@ import { magToGain, wlToFreq, freqToWl, DEFAULT_PARAMS, profileToEnvelope } from
 import { normalizeMelody, describeNormalization, MELODY_LIMITS } from "../src/melodies/normalize.js";
 import { parseMidi, midiTrackOptions, midiToMelody } from "../src/melodies/midi.js";
 import { smf, tempo, name as trackName, on, off } from "./lib/smf.mjs";
+import { unwrapMidi, decodeBinHex } from "../src/melodies/container.js";
+import { binhex } from "./lib/binhex.mjs";
 import { fitEnvelope } from "../src/audio/envelope.js";
 
 let fails = 0;
@@ -130,6 +132,48 @@ const notesOf = (m) => m.notes.map((n) => `${n.midi ?? "r"}:${n.beats}`).join(" 
   const empty = err(() => midiToMelody(parseMidi(smf({ format: 0, ppq: Q, tracks: [[[0, ...tempo(100)]]] }))));
   ok(/isn't a MIDI file/.test(notMidi) && /ends unexpectedly/.test(truncated) && /only has percussion/.test(drumsOnly) && /no notes/.test(empty),
     "bad files fail with a readable reason (not MIDI, truncated, drums only, no notes)");
+}
+
+// 1d. Staggered chords and old containers (BinHex .hqx, RIFF .rmi, MacBinary)
+{
+  // Chord notes a few ticks apart (DAW/keyboard stagger) merge; a 16th-note run does not.
+  const f = smf({ format: 0, ppq: Q, tracks: [[
+    [0, ...on(0, 60)], [10, ...on(0, 64)], [10, ...on(0, 67)], [Q - 20, ...off(0, 60)], [0, ...off(0, 64)], [0, ...off(0, 67)],
+    [0, ...on(0, 72)], [Q / 4, ...off(0, 72)], [0, ...on(0, 74)], [Q / 4, ...off(0, 74)], [0, ...on(0, 76)], [Q / 4, ...off(0, 76)]]] });
+  const { melody, report } = midiToMelody(parseMidi(f));
+  ok(notesOf(melody) === "67:1 72:0.25 74:0.25 76:0.25" && report.staggeredChordNotes === 2,
+    `staggered chord (0/10/20 ticks) → one note, its top pitch; 16th notes stay separate (${notesOf(melody)})`);
+}
+const tune = smf({ format: 0, ppq: Q, tracks: [[[0, ...tempo(100)], [0, ...on(0, 60)], [Q, ...off(0, 60)], [0, ...on(0, 62)], [Q, ...off(0, 62)]]] });
+{
+  const u = unwrapMidi(binhex(tune, { name: "Tune.mid" }), "Tune.hqx");
+  ok(u.steps.join() === "BinHex 4.0 (Tune.mid)" && notesOf(midiToMelody(parseMidi(u.bytes)).melody) === "60:1 62:1",
+    "BinHex .hqx: decoded to the MIDI data fork and played");
+  // Round trip with long runs and 0x90 bytes (RLE + escape paths).
+  const tricky = Uint8Array.from([0x90, 0x90, 0x90, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0x90, 7, ...Array(300).fill(0xaa), 0x90]);
+  const back = decodeBinHex(binhex(tricky, { name: "x" })).data;
+  ok(back.length === tricky.length && back.every((b, i) => b === tricky[i]), "BinHex run-length encoding and 0x90 escapes decode byte-exact");
+  // One altered character → checksum error, not garbage.
+  const enc = binhex(tune, { name: "Tune.mid" }); const txt = new TextDecoder().decode(enc);
+  const pos = txt.indexOf(":") + 40; const swapped = txt[pos] === "A" ? "B" : "A";
+  const corrupt = new TextEncoder().encode(txt.slice(0, pos) + swapped + txt.slice(pos + 1));
+  let corruptMsg = ""; try { unwrapMidi(corrupt, "Tune.hqx"); } catch (e) { corruptMsg = e.message; }
+  ok(/corrupted|checksum|truncated/.test(corruptMsg), `a damaged .hqx is refused: "${corruptMsg}"`);
+  // StuffIt inside BinHex → explains how to unpack.
+  const sit = Uint8Array.from([..."SIT!"].map((c) => c.charCodeAt(0)).concat(Array(40).fill(0)));
+  let sitMsg = ""; try { unwrapMidi(binhex(sit, { name: "Songs.sit", type: "SIT!" }), "Songs.sit.hqx"); } catch (e) { sitMsg = e.message; }
+  ok(/StuffIt archive/.test(sitMsg) && /Unarchiver/.test(sitMsg), "StuffIt inside a .hqx gets a clear 'unpack it first' message");
+}
+{
+  // RIFF MIDI (.rmi): RIFF/RMID wrapper around a "data" chunk.
+  const le = (n) => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  const rmi = Uint8Array.from([..."RIFF"].map((c) => c.charCodeAt(0)).concat(le(4 + 8 + tune.length), [..."RMIDdata"].map((c) => c.charCodeAt(0)), le(tune.length), [...tune]));
+  const u = unwrapMidi(rmi, "tune.rmi");
+  ok(u.steps.join() === "RIFF MIDI" && notesOf(midiToMelody(parseMidi(u.bytes)).melody) === "60:1 62:1", "RIFF MIDI (.rmi) unwrapped");
+  // 128-byte MacBinary header in front.
+  const mb = new Uint8Array(128 + tune.length); mb.set(tune, 128);
+  ok(unwrapMidi(mb, "tune.bin").steps.join() === "MacBinary header", "a 128-byte MacBinary header is skipped");
+  ok(unwrapMidi(tune).steps.length === 0, "a plain .mid passes through untouched");
 }
 
 // 2. magToGain

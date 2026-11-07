@@ -336,3 +336,39 @@ MIDI files were tested: this session can't download them, and the site the user 
   tunings plays in 12-TET. This matters for Wendy Carlos's Alpha, Beta and Gamma scale
   pieces, if those are what the linked page offers.
 - Imports don't survive a reload.
+
+## 12. BinHex and staggered chords; free-midi-chords reviewed (2026-11-07)
+
+**BinHex `.hqx` and other wrappers.** `src/melodies/container.js` peels old wrappers before
+the MIDI parser runs:
+- BinHex 4.0: 6-bit text, run-length decoding, header and data-fork CRC-16/XMODEM checks
+  (the CRC matches the published "123456789" → 0x31C3 vector). It keeps the data fork,
+  where a Mac MIDI file keeps its notes.
+- RIFF MIDI (`.rmi`).
+- A MacBinary header or other short prefix before `MThd`.
+
+StuffIt archives (`.sit`, often found inside `.hqx` downloads) are recognised and refused,
+with a message to unpack them first (The Unarchiver or StuffIt Expander). StuffIt uses
+several compression schemes, which is a much larger job; I'd only take it on after seeing
+real files. The status line reports what was unwrapped. Python's stdlib `binhex` module is
+gone (removed in 3.11), so the decoder is checked against our own test encoder (with run and
+0x90-escape cases) and the CRC test vector, not a third-party encoder.
+
+**Staggered chords.** Real-world MIDI often staggers or strums chord notes by a few
+milliseconds. Before, each slightly later note cut the previous one, producing a stutter.
+Now onsets within 1/16 beat of a chord's first note count as one chord and keep its highest
+note. A 16th-note melody (1/4 beat apart) is unaffected.
+
+**ldrolez/free-midi-chords (MIT)**, reviewed at the user's request: about 13,000 generated MIDI
+files, 195 chord progressions per key, mood-tagged ("nostalgic but hopeful"). The files are
+built by a Python generator, not committed. Running the repo's generator here was blocked by
+the session's safety policy (code from an external repository), so I read the generator source
+instead (`src/chords2midi/c2m.py`). It writes one track on channel 0, with every chord note
+starting at the same time (humanize defaults to 0) and an optional bass note two octaves down.
+The importer therefore plays the top note of each chord as the melody, and the harmony is
+dropped. These files are chords, not melodies, so they fit a feature we don't have:
+**polyphonic playback across stars** (each chord tone on its own star, several stars sounding
+and pulsing together; ROADMAP Phase 6 "multi-star chords"). Assignment already locks one star
+per distinct pitch, so the remaining work is a polyphonic event plan (chord events instead of
+single notes), simultaneous voices with 1/√N gain scaling (as `playChord` does), and an import
+option to keep chords instead of the top note. A design decision for the user.

@@ -162,11 +162,15 @@ stars in view. The brief and decisions are in
   (dependency-free Standard MIDI File parser: formats 0/1/2, PPQ or SMPTE timing, running
   status, tempo map). One voice: the busiest pitched track by default, with a VOICE picker
   for multi-track files (or "All tracks"); channel 10 (percussion) is never a voice;
-  highest note per onset, and a new onset ends the previous note. Timing is not quantized;
+  onsets within 1/16 beat count as one chord (staggered or strummed chords) and keep their
+  highest note, and a new onset ends the previous note. Old wrappers are peeled first by
+  [src/melodies/container.js](src/melodies/container.js): BinHex 4.0 `.hqx` (data fork,
+  CRC-checked), RIFF `.rmi`, MacBinary headers. StuffIt `.sit` is recognised but not unpacked
+  (the error says to unpack it first). Timing is not quantized;
   tempo changes are honoured by re-expressing real seconds in beats of the first tempo.
   Pitch bend is ignored, so microtonal or retuned files play in 12-TET. 1 MB limit; imports
   last until the page reloads. Tests build files byte by byte with
-  [scripts/lib/smf.mjs](scripts/lib/smf.mjs).
+  [scripts/lib/smf.mjs](scripts/lib/smf.mjs) and wrap them with [scripts/lib/binhex.mjs](scripts/lib/binhex.mjs).
 - **Imported melodies**: anything not in `presets.js` goes through
   [src/melodies/normalize.js](src/melodies/normalize.js) `normalizeMelody(raw)`: name/bpm
   sanitised, bad notes dropped, rests merged/trimmed, whole-octave shift to fit MIDI 48–84

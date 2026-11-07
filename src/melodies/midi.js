@@ -12,8 +12,10 @@
 //   • one voice: the busiest pitched track unless the caller picks one, or
 //     `track: "all"` merges every pitched track. Channel 10 (percussion) is
 //     never a voice.
-//   • overlaps → a single line: when several notes start on the same tick the
-//     highest wins; a new onset always ends the note before it.
+//   • overlaps → a single line: notes starting within 1/16 beat of each other
+//     count as one chord (DAWs and keyboards often stagger or strum chords by a
+//     few milliseconds), and its highest note wins, starting at the earliest
+//     onset; a new onset always ends the note before it.
 //   • timing kept as written (no quantizing). Tempo changes are honoured: each
 //     note's real duration in seconds is re-expressed in beats of the first
 //     tempo, so the tune plays at its true speed. Gaps shorter than 1/64 beat
@@ -164,12 +166,19 @@ export function midiToMelody(parsed, opts = {}) {
     : parsed.tracks[chosen].notes;
   const pitched = source.filter((n) => !isPercussion(n)).sort((a, b) => a.startTick - b.startTick || b.pitch - a.pitch);
 
-  // Single line: highest note per onset; each onset ends the previous note.
+  // Single line: highest note per chord (onsets within CHORD_WINDOW of the
+  // chord's first note); each new onset ends the previous note.
+  const CHORD_WINDOW = parsed.ppq / 16;
   const line = [];
-  let dropped = 0, cut = 0;
+  let dropped = 0, cut = 0, staggered = 0;
   for (const n of pitched) {
     const prev = line[line.length - 1];
-    if (prev && n.startTick === prev.startTick) { dropped++; continue; } // lower note of a chord
+    if (prev && n.startTick - prev.startTick <= CHORD_WINDOW) {
+      dropped++;
+      if (n.startTick !== prev.startTick) staggered++;
+      if (n.pitch > prev.pitch) { prev.pitch = n.pitch; prev.endTick = Math.max(prev.endTick, n.endTick); }
+      continue;
+    }
     if (prev && n.startTick < prev.endTick) { prev.endTick = n.startTick; cut++; }
     line.push({ ...n });
   }
@@ -204,7 +213,7 @@ export function midiToMelody(parsed, opts = {}) {
     melody: { name, bpm, notes },
     report: {
       track: chosen, trackName: chosen === "all" ? "All tracks" : (trackName || `Track ${chosen + 1}`),
-      tracksWithNotes: options.length, chordNotesDropped: dropped, overlapsCut: cut, tempoChanges,
+      tracksWithNotes: options.length, chordNotesDropped: dropped, staggeredChordNotes: staggered, overlapsCut: cut, tempoChanges,
       smpte: parsed.smpte,
     },
   };

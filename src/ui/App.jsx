@@ -11,7 +11,8 @@ import MelodyControl from "./MelodyControl.jsx";
 import useMinWidth from "./useMinWidth.js";
 import { MELODY_PRESETS } from "../melodies/presets.js";
 import { normalizeMelody, describeNormalization } from "../melodies/normalize.js";
-import { parseMidi, midiTrackOptions, midiToMelody, MIDI_LIMITS } from "../melodies/midi.js";
+import { parseMidi, midiTrackOptions, midiToMelody } from "../melodies/midi.js";
+import { unwrapMidi, CONTAINER_LIMITS } from "../melodies/container.js";
 import { assignStars, distinctPitches, planMelody, driftStats } from "../melodies/melody.js";
 import { SonificationEngine } from "../audio/SonificationEngine.js";
 import { StarDataResolver } from "../data/StarDataResolver.js";
@@ -347,6 +348,7 @@ export default function App() {
       ? ` · voice: ${midiReport.trackName}${midiReport.tracksWithNotes > 1 ? ` (1 of ${midiReport.tracksWithNotes} tracks with notes)` : ""}`
       : "";
     const extras = [];
+    if (midiReport?.unwrapped?.length) extras.push(`unwrapped from ${midiReport.unwrapped.join(" → ")}`);
     if (midiReport?.chordNotesDropped) extras.push(`top note of ${midiReport.chordNotesDropped} chord notes kept`);
     if (midiReport?.tempoChanges) extras.push("tempo changes kept");
     const changed = describeNormalization(r);
@@ -379,14 +381,17 @@ export default function App() {
   // "+ MIDI": read a Standard MIDI File, pick a voice, add it as a melody.
   const handleImportMidi = useCallback(async (file) => {
     if (!file) return;
-    if (file.size > MIDI_LIMITS.maxBytes) {
-      setMelodyStatus({ text: `Couldn't import ${file.name}: larger than ${MIDI_LIMITS.maxBytes / 1024} KB.`, warn: true });
+    if (file.size > CONTAINER_LIMITS.maxBytes) {
+      setMelodyStatus({ text: `Couldn't import ${file.name}: larger than ${CONTAINER_LIMITS.maxBytes / 1024 / 1024} MB.`, warn: true });
       return;
     }
     try {
-      const parsed = parseMidi(await file.arrayBuffer());
-      const fileName = file.name.replace(/\.(mid|midi|kar)$/i, "");
+      // Old wrappers first (BinHex .hqx, RIFF .rmi, MacBinary), down to the SMF.
+      const { bytes, steps } = unwrapMidi(await file.arrayBuffer(), file.name);
+      const parsed = parseMidi(bytes);
+      const fileName = file.name.replace(/(\.(mid|midi|kar|rmi))?(\.(hqx|bin))?$/i, "");
       const { melody, report } = midiToMelody(parsed, { name: fileName });
+      report.unwrapped = steps;
       engineRef.current.stop();
       addUserMelody(melody, { parsed, fileName, options: midiTrackOptions(parsed), track: report.track }, report);
     } catch (e) {
