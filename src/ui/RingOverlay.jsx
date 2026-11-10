@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { wlToRGB } from "../audio/color.js";
+import { spectrumStops, wlToRingPos } from "./spectrumHalo.js";
 
 // Star band animation overlay. A transparent canvas over the engine canvas that
 // draws colored ripple bands emanating from a singing star — one band per
@@ -23,7 +24,19 @@ const BAND_STRETCH = 130;     // px/s — thickening as it travels
 const BAND_THICKNESS = 16;    // px   — thickness at birth
 const BAND_FADE = 1.5;        // exponent on the overall fade
 const BAND_PULSE_PERIOD = 0.6; // s — spacing between bands while a chord is held
-const MELODY_PEAK = 0.8;       // melody pulses: fixed peak alpha (colour is the star's, not a line's)
+const MELODY_PEAK = 0.8;
+// Spectrum halo (melody waves): a ring that grows outward, violet inside to red
+// outside, with the star's absorption lines as dark rings (see spectrumHalo.js).
+const HALO_BASE_RADIUS = 34;   // px — outer radius at birth
+const HALO_MAX_RADIUS = 150;   // px — it eases out to this and holds (long notes must not flood the sky)
+const HALO_MAX_SCREEN = 0.3;   // …or this fraction of the short screen side, if smaller (phones)
+const HALO_GROW_TAU = 0.35;    // s — time constant of the ease-out
+const HALO_INNER_FRAC = 0.34;  // inner edge as a fraction of the outer (dark gap around the star)
+const HALO_PEAK = 0.82;        // peak alpha (the sky stays faintly visible through it)
+const HALO_FADE = 2.4;         // alpha = peak·(1 − u^HALO_FADE): holds its colour, then fades late       // melody pulses: fixed peak alpha (colour is the star's, not a line's)
+
+// Push a colour halfway to white, so the sung-note ring reads over its own hue.
+const brighten = ([r, g, b]) => [r, g, b].map((c) => Math.round(c + (255 - c) * 0.55));
 
 // "#rrggbb" → [r, g, b]; null for anything else.
 function hexToRGB(hex) {
@@ -128,12 +141,12 @@ export default function RingOverlay({ engine }) {
       sys.fadeDur = fadeDurationSec || 0.001;
     };
 
-    // Melody mode: one band per note, living exactly as long as the note. Two
-    // colours: the bright leading rim is the note's tone colour (its pitch as a
-    // wavelength, through the same wlToRGB the spectrum uses), the softer glow
-    // behind it is the singing star's display colour. `getPos` re-projects the
-    // star each frame so the pulse stays on it while the view pans.
-    const onMelodyNote = ({ starKey, color, toneWl, durationSec, getPos }) => {
+    // Melody mode: one wave per note, living exactly as long as the note. The
+    // wave is the singing star's spectrum as a ring (wavelength → radius, its
+    // absorption lines as dark rings), with one bright ring at the wavelength
+    // of the note being sung. `getPos` re-projects the star each frame so the
+    // wave stays on it while the view pans.
+    const onMelodyNote = ({ starKey, color, toneWl, lines, durationSec, getPos }) => {
       let sys = systemsRef.current.get(starKey);
       if (!sys) {
         sys = { mode: "melody", pos: null, getPos, bands: [], fadeStartT: null, fadeDur: 0 };
@@ -149,7 +162,9 @@ export default function RingOverlay({ engine }) {
         life: Math.max(0.05, durationSec),
         rgb: starRGB,
         rim: toneWl != null ? wlToRGB(toneWl) : null,
-        peak: MELODY_PEAK,
+        peak: lines ? HALO_PEAK : MELODY_PEAK,
+        spectrum: lines || null, // star's absorption lines → spectrum halo
+        toneWl: toneWl ?? null,
       });
       ensureRaf();
     };
@@ -215,6 +230,38 @@ export default function RingOverlay({ engine }) {
             alpha = Math.pow(1 - u, BAND_FADE) * band.peak;
           }
 
+          if (band.spectrum) {
+            // Spectrum halo: an annulus from `inner` to `outer`, painted with the
+            // star's radial spectrum; then the sung note as one bright ring.
+            // Its own fade curve: the generic band fade (1−u)^1.5 is already half
+            // gone a third of the way through a note, which left the spectrum too
+            // faint to read. Under a force-fade, scale by the same release ramp.
+            if (sys.fadeStartT == null) alpha = band.peak * (1 - Math.pow(Math.min(1, u), HALO_FADE));
+            if (alpha <= 0.002) continue;
+            const maxR = Math.min(HALO_MAX_RADIUS, HALO_MAX_SCREEN * Math.min(w, h));
+            const outerR = HALO_BASE_RADIUS + (maxR - HALO_BASE_RADIUS) * (1 - Math.exp(-age / HALO_GROW_TAU));
+            const innerR = outerR * HALO_INNER_FRAC;
+            const { x, y } = sys.pos;
+            const grad = ctx.createRadialGradient(x, y, innerR, x, y, outerR);
+            for (const s of spectrumStops(band.spectrum, outerR - innerR)) {
+              grad.addColorStop(s.pos, `rgba(${s.rgb[0]},${s.rgb[1]},${s.rgb[2]},${(alpha * s.k).toFixed(4)})`);
+            }
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(x, y, outerR, 0, Math.PI * 2);
+            ctx.arc(x, y, innerR, 0, Math.PI * 2, true);
+            ctx.fill();
+            if (band.toneWl != null) {
+              const [tr, tg, tb] = brighten(band.rim || [255, 255, 255]);
+              ctx.strokeStyle = `rgba(${tr},${tg},${tb},${Math.min(1, alpha * 1.5).toFixed(4)})`;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(x, y, innerR + wlToRingPos(band.toneWl) * (outerR - innerR), 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            continue;
+          }
+
           const outer = BASE_RADIUS + BAND_SPEED * age;
           const birthThickness = band.birthThickness ?? BAND_THICKNESS;
           const inner = Math.max(0, outer - (birthThickness + BAND_STRETCH * age));
@@ -264,7 +311,7 @@ export default function RingOverlay({ engine }) {
     window.__ringOverlay = {
       isAnimating: () => rafRef.current != null,
       count: () => systemsRef.current.size,
-      bands: () => [...systemsRef.current.entries()].map(([k, s]) => ({ key: k, mode: s.mode, n: s.bands.length, pos: s.pos, rgb: s.bands[0]?.rgb ?? null, rim: s.bands[s.bands.length - 1]?.rim ?? null, life: s.bands[0]?.life ?? null })),
+      bands: () => [...systemsRef.current.entries()].map(([k, s]) => ({ key: k, mode: s.mode, n: s.bands.length, pos: s.pos, rgb: s.bands[0]?.rgb ?? null, rim: s.bands[s.bands.length - 1]?.rim ?? null, spectrumLines: s.bands[s.bands.length - 1]?.spectrum?.length ?? 0, life: s.bands[0]?.life ?? null })),
     };
 
     return () => {

@@ -151,11 +151,15 @@ stars in view. The brief and decisions are in
   Notes use `_buildVoice(…, {envFit: "proportional"})`: A/D/R scale together only when the
   note is shorter than their sum. `playLine(line, rv, duration)` has the same opt-in; omit
   `duration` and it is bit-identical to before.
-- **Pulses**: `melodyNote` events → `RingOverlay` draws one band per note, living for the
-  note's length, and re-projects the star every frame so pulses follow pans. **Two colours:**
-  the leading rim is the note's **tone colour** (`freqToWl` in `mappings.js`, the inverse of
-  `wlToFreq`, then the shared `wlToRGB`: low notes orange-red, high notes violet; in honest
-  mode exactly the line's own colour) and the glow behind it is the **star's** display colour.
+- **Pulses**: `melodyNote` events → `RingOverlay` draws one wave per note, living for the
+  note's length, and re-projects the star every frame so waves follow pans. Each wave is a
+  **spectrum halo** ([src/ui/spectrumHalo.js](src/ui/spectrumHalo.js), pure): wavelength →
+  radius (380 nm violet at the inner edge, 760 nm red at the outer), the singing star's own
+  absorption lines as dark rings (darkness from depth, width from line width with a
+  visibility floor), plus one bright ring at the sung note's wavelength (`freqToWl`, the
+  inverse of `wlToFreq`; in honest mode it sits exactly on the sung line). The halo eases out
+  to a fixed size (150 px, or 30% of the short screen side) and holds its colour for most of
+  the note. It pictures the star's line list, not a measured spectrum.
   Hover/SEQ/CHORD bands are unchanged (one colour, the line's). `stop()` emits `starStopped`
   per melody star, which clears them.
 - **MIDI upload**: "+ MIDI" in the MELODY row → [src/melodies/midi.js](src/melodies/midi.js)

@@ -372,3 +372,26 @@ and pulsing together; ROADMAP Phase 6 "multi-star chords"). Assignment already l
 per distinct pitch, so the remaining work is a polyphonic event plan (chord events instead of
 single notes), simultaneous voices with 1/√N gain scaling (as `playChord` does), and an import
 option to keep chords instead of the top note. A design decision for the user.
+
+## 13. Spectrum-halo waves (requested 2026-11-10; on the branch, not merged)
+
+The user asked for the waves stars send out to "colorfully display their spectrograph data",
+with radial-spectrum concept notes and three mockups. Built for melody mode:
+
+- **Wavelength → radius**, linear over the app's 380–760 nm band: violet at the inner edge,
+  red at the outer. A dark gap separates the star from the ring. Angle carries no data.
+- **Absorption lines → dark rings**, from the singing star's own line list (curated or
+  template). Darkness follows line depth. Ring width follows line width, with a floor of
+  about 1 px, because real lines are far below a pixel at this scale.
+- **The sung note → one bright ring** at its wavelength on the same scale. In honest mode it
+  lands exactly on the absorption line being sung.
+- The halo eases out to 150 px (or 30% of the short screen side) and holds, so long notes
+  and chords don't flood the sky. It keeps its colour for most of the note, then fades.
+
+This replaces the earlier two-colour wave (§9: tone-coloured rim, star-coloured glow). The
+star's display colour is no longer in the wave. Hover, sequence and chord bands are unchanged.
+
+Limits: it shows the app's line list for the star (6–8 lines), not a measured spectrum. The
+mockups' labels, radial ruler and inspector card are not built, and close violet lines (Ca II
+H and K) merge at this size. `verify:melody` covers the mapping and the dark rings;
+`verify:melody-live` checks that each wave uses its own star's lines.

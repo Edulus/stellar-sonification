@@ -135,7 +135,13 @@ try {
     return bands.every((b) => last[b.key] && JSON.stringify(b.rim) === JSON.stringify(wlToRGB(last[b.key].wl))
       && JSON.stringify(b.rgb) === JSON.stringify(hex(last[b.key].color))) && bands.length > 0;
   });
-  ok(bands.length > 0 && bandColours, "drawn bands: tone-coloured rim, star-coloured glow");
+  ok(bands.length > 0 && bandColours, "drawn waves carry the note's tone colour and the star's colour");
+  const haloLines = await page.evaluate(() => {
+    const live = window.__ringOverlay.bands().filter((b) => b.key.startsWith("melody:") && b.n > 0);
+    const stars = Object.fromEntries(window.__melody.assignment.stars.map((s) => [s.key, s.lines.length]));
+    return live.length > 0 && live.every((b) => b.spectrumLines === stars[b.key] && b.spectrumLines > 0);
+  });
+  ok(haloLines, "each wave is a spectrum halo built from its own star's absorption lines");
   const proj = await page.evaluate((keys) => keys.map((k) => {
     const s = window.__melody.assignment.stars.find((x) => x.key === k);
     return window.__bridge.projectToScreen(s.radecICRF);

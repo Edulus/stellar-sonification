@@ -768,7 +768,7 @@ export class SonificationEngine {
    * detune, then schedules everything off one absolute audio-clock start like
    * playSeed, so timer jitter cannot make the tune drift.
    *
-   * Emits `melodyNote` { starKey, color, toneWl, durationSec, getPos } at each note's
+   * Emits `melodyNote` { starKey, color, toneWl, lines, durationSec, getPos } at each note's
    * audible onset (the band overlay pulses that star), and `starStopped` for
    * every star when the melody ends or stop() is called.
    *
@@ -818,6 +818,7 @@ export class SonificationEngine {
               // Pitch → wavelength on the app's own scale. In honest mode the note
               // is the line's real pitch, so this is exactly the line's wavelength.
               toneWl: freqToWl(v.freq, p),
+              lines: v.star.lines, // the star's line list, for the spectrum halo
               durationSec: e.dur,
               getPos: opts.getPos ? () => opts.getPos(v.star) : null,
             });

@@ -24,6 +24,7 @@ import { smf, tempo, name as trackName, on, off } from "./lib/smf.mjs";
 import { unwrapMidi, decodeBinHex } from "../src/melodies/container.js";
 import { binhex } from "./lib/binhex.mjs";
 import { fitEnvelope } from "../src/audio/envelope.js";
+import { spectrumStops, wlToRingPos } from "../src/ui/spectrumHalo.js";
 
 let fails = 0;
 const ok = (cond, msg) => { console.log(`${cond ? "PASS" : "FAIL"}  ${msg}`); if (!cond) fails += 1; };
@@ -224,6 +225,20 @@ ok([380, 434, 486.1, 589, 656.3, 760].every((wl) => near(freqToWl(wlToFreq(wl)),
 ok(Math.abs(freqToWl(midiToFreq(60)) - 633.33) < 0.01 && Math.abs(freqToWl(midiToFreq(79)) - 432.78) < 0.01,
   `tone wavelengths: C4 → ${freqToWl(midiToFreq(60)).toFixed(1)} nm (orange), G5 → ${freqToWl(midiToFreq(79)).toFixed(1)} nm (violet)`);
 ok(freqToWl(midiToFreq(20)) === 760 && freqToWl(midiToFreq(120)) === 380, "out-of-range pitches clamp to the visible band");
+
+// 2c. Spectrum halo (the wave a singing star sends out)
+{
+  ok(wlToRingPos(380) === 0 && wlToRingPos(760) === 1 && near(wlToRingPos(570), 0.5) && wlToRingPos(900) === 1, "wavelength → radius is linear: 380 nm inner edge, 760 nm outer edge");
+  const lines = [{ wl: 486.1, depth: 0.8, width: 2 }, { wl: 656.3, depth: 0.2, width: 0.3 }];
+  const stops = spectrumStops(lines, 100);
+  const at = (wl) => stops.reduce((b, s) => (Math.abs(s.pos - wlToRingPos(wl)) < Math.abs(b.pos - wlToRingPos(wl)) ? s : b));
+  ok(stops.every((s, i) => s.pos >= 0 && s.pos <= 1 && (i === 0 || s.pos > stops[i - 1].pos) && s.k >= 0 && s.k <= 1), `halo stops are ordered, within the ring, brightness 0..1 (${stops.length} stops)`);
+  ok(stops[0].k === 0 && stops[stops.length - 1].k === 0 && at(570).k === 1, "halo fades at both edges and is full brightness where there is no line");
+  ok(at(486.1).k < 0.15 && at(656.3).k > at(486.1).k && at(656.3).k < 0.5, `absorption lines are darker rings; a deeper line is darker (Hβ ${at(486.1).k.toFixed(2)}, Hα ${at(656.3).k.toFixed(2)})`);
+  const violet = at(420).rgb, red = at(680).rgb;
+  ok(violet[2] > violet[1] && red[0] > red[2], "violet inside, red outside");
+  ok(spectrumStops([], 80).every((s) => s.k <= 1) && spectrumStops(null, 0).length > 10, "a star with no lines still gets a plain spectrum ring");
+}
 
 // 3. fitEnvelope
 const lor = profileToEnvelope("lorentzian"); // a+d+r = 0.41
