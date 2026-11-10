@@ -18,7 +18,6 @@ export default function MelodyControl({
   disabled, melodies, presetCount, presetIndex, onPresetChange, honest, onHonestChange, playing, onPlay, onStop, status,
   onImportMidi, trackOptions, track, onTrackChange,
   chordSampleStart = presetCount, midiChords, onMidiChordsChange,
-  haloStyle, onHaloStyleChange,
 }) {
   const fileRef = useRef(null);
   const presets = melodies.slice(0, chordSampleStart);
@@ -90,16 +89,6 @@ export default function MelodyControl({
             CHORDS <span style={S.state}>{midiChords ? "ON" : "OFF"}</span>
           </button>
         )}
-        {onHaloStyleChange && (
-          <button
-            onClick={() => onHaloStyleChange(haloStyle === "bright" ? "dark" : "bright")}
-            style={S.button(false, false)}
-            title="Wave style: the star's lines as BRIGHT rings on a faint spectrum, or as DARK rings on a full rainbow"
-            aria-label="Wave ring style"
-          >
-            RINGS <span style={S.state}>{haloStyle === "bright" ? "BRIGHT" : "DARK"}</span>
-          </button>
-        )}
         <input
           ref={fileRef}
           type="file"
@@ -130,6 +119,14 @@ export default function MelodyControl({
         )}
       </div>
       {status && <div style={S.status(status.warn)}>{status.text}</div>}
+      {playing && (
+        <div
+          style={S.legend}
+          title="Each coloured ring marks a wavelength where this star's light is absorbed. They are highlighted for visibility; the star does not emit extra light there. The white ring is a musical layer: the sung note placed on the spectrum by this app's pitch-to-wavelength mapping."
+        >
+          Coloured rings: highlighted absorption lines (not emission) · White ring: the sung note
+        </div>
+      )}
     </div>
   );
 }
@@ -159,6 +156,11 @@ const S = {
     cursor: disabled ? "default" : "pointer", whiteSpace: "nowrap",
   }),
   state: { opacity: 0.6, marginLeft: 2 },
+  legend: {
+    fontFamily: mono, fontSize: 11, letterSpacing: 0.3, lineHeight: 1.45,
+    color: "rgba(200,208,225,0.7)", maxWidth: 420, paddingLeft: 2,
+    textShadow: "0 1px 2px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.85)",
+  },
   voice: { display: "flex", alignItems: "center", gap: 4, fontFamily: mono, fontSize: 12, letterSpacing: 1, color: "rgba(200,208,225,0.8)" },
   status: (warn) => ({
     fontFamily: mono, fontSize: 12, letterSpacing: 0.5,

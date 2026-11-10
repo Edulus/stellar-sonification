@@ -26,7 +26,7 @@ const MIN_HALF_PX = 1.1;     // narrowest dark ring, half-width
 const HALF_PX_PER_WIDTH = 0.7; // extra half-width per unit of line width (Å)
 const MAX_HALF_PX = 3.5;
 // "bright" style: faint continuum, wider glowing rings.
-const BRIGHT_BASE = 0.1;       // continuum brightness
+const BRIGHT_BASE = 0.04;      // continuum brightness: only a faint spectral haze between the rings
 const BRIGHT_MIN_HALF_PX = 2.6;
 const BRIGHT_HALF_PX_PER_WIDTH = 1.1;
 const BRIGHT_MAX_HALF_PX = 6;

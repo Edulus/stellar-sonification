@@ -413,3 +413,23 @@ Side by side (Rigel B8, Sirius A1, Sol G2, Betelgeuse M1), the bright style give
 visibly different ring patterns; the dark style gives four near-identical rainbows. Which one
 stays, or whether the switch stays, is the user's call after seeing it. Strictly, bright rings
 look like emission lines; here they mark where the star's light is *missing*.
+
+### 13-B. Decision: bright rings, refined (2026-11-10)
+
+The user compared both styles and chose the bright rings: they keep the starfield visible
+and make each star's line pattern readable, where the rainbow drowned the differences. The
+RINGS switch is removed. Refinements they asked for, all built:
+
+- **Fainter haze:** the continuum between rings is 4% (was 10%), so the rings carry the colour.
+- **Distinct note ring:** the white ring pulses gently (1.6 Hz) and a white marker travels
+  round it (one lap per 2.6 s). It is drawn as true white over any coloured ring it overlaps.
+  Under "reduce motion" the ring is steady and the marker stays put.
+- **The star's own colour:** a soft glow in the star's display colour fills the gap at the
+  centre, tying the pattern to the star that is sounding.
+- **Scientific labelling:** while a melody plays, a caption reads "Coloured rings:
+  highlighted absorption lines (not emission) · White ring: the sung note", with a fuller
+  tooltip. The glow is a display choice; the rings mark where light is absorbed. The white
+  ring is a musical interpretation layered on the spectrum.
+
+The result has three layers: the star at the centre, its chemical pattern around it, and
+its current note moving through that pattern.

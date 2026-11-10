@@ -155,14 +155,17 @@ stars in view. The brief and decisions are in
   note's length, and re-projects the star every frame so waves follow pans. Each wave is a
   **spectrum halo** ([src/ui/spectrumHalo.js](src/ui/spectrumHalo.js), pure): wavelength →
   radius (380 nm violet at the inner edge, 760 nm red at the outer), the singing star's own
-  absorption lines as dark rings (darkness from depth, width from line width with a
-  visibility floor), plus one bright ring at the sung note's wavelength (`freqToWl`, the
+  absorption lines as rings (strength from depth, width from line width with a
+  visibility floor), plus one ring at the sung note's wavelength (`freqToWl`, the
   inverse of `wlToFreq`; in honest mode it sits exactly on the sung line). The halo eases out
   to a fixed size (150 px, or 30% of the short screen side) and holds its colour for most of
-  the note. It pictures the star's line list, not a measured spectrum. **Two styles**
-  (RINGS button in the MELODY row; a design comparison the user is still judging):
-  "bright" (default) inverts it, with each line glowing in its own colour on a faint wash
-  and the sung note as a thin white ring; "dark" is the rainbow with dark line rings.
+  the note. It pictures the star's line list, not a measured spectrum. The user chose the
+  **bright-ring style** (three layers): the star's display colour glowing at the centre; its
+  lines as glowing rings over a very faint spectral haze (these are *highlighted absorption*
+  wavelengths, not emission, and a caption under the MELODY row says so while playing); and
+  the sung note as a white ring that pulses, with a marker travelling round it, a musical
+  layer placed by the pitch → wavelength mapping. `spectrumStops` still has a "dark" style
+  (rainbow with dark rings), unused in the UI.
   Hover/SEQ/CHORD bands are unchanged (one colour, the line's). `stop()` emits `starStopped`
   per melody star, which clears them.
 - **MIDI upload**: "+ MIDI" in the MELODY row → [src/melodies/midi.js](src/melodies/midi.js)
