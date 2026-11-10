@@ -159,7 +159,10 @@ stars in view. The brief and decisions are in
   visibility floor), plus one bright ring at the sung note's wavelength (`freqToWl`, the
   inverse of `wlToFreq`; in honest mode it sits exactly on the sung line). The halo eases out
   to a fixed size (150 px, or 30% of the short screen side) and holds its colour for most of
-  the note. It pictures the star's line list, not a measured spectrum.
+  the note. It pictures the star's line list, not a measured spectrum. **Two styles**
+  (RINGS button in the MELODY row; a design comparison the user is still judging):
+  "bright" (default) inverts it, with each line glowing in its own colour on a faint wash
+  and the sung note as a thin white ring; "dark" is the rainbow with dark line rings.
   Hover/SEQ/CHORD bands are unchanged (one colour, the line's). `stop()` emits `starStopped`
   per melody star, which clears them.
 - **MIDI upload**: "+ MIDI" in the MELODY row → [src/melodies/midi.js](src/melodies/midi.js)

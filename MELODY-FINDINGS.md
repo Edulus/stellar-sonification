@@ -395,3 +395,21 @@ Limits: it shows the app's line list for the star (6–8 lines), not a measured 
 mockups' labels, radial ruler and inspector card are not built, and close violet lines (Ca II
 H and K) merge at this size. `verify:melody` covers the mapping and the dark rings;
 `verify:melody-live` checks that each wave uses its own star's lines.
+
+### 13-A. Bright-ring style (2026-11-10)
+
+The user found that the dark rings, which are what make each star unique, were hard to see,
+so every star's wave read as the same rainbow. They asked to try the inverse. Built as a
+second style with a switch (RINGS: BRIGHT / DARK in the MELODY row) so the two can be
+compared on the same stars:
+
+- **Bright (now the default):** the continuum is a faint wash (10%) and each absorption line
+  glows in its own colour. Rings are wider than in the dark style (2.6–6 px half-width) and
+  brighter for deeper lines. The sung note is a thin white ring, so it can't be mistaken for
+  one of the star's lines.
+- **Dark:** the rainbow with dark line rings, as in §13.
+
+Side by side (Rigel B8, Sirius A1, Sol G2, Betelgeuse M1), the bright style gives four
+visibly different ring patterns; the dark style gives four near-identical rainbows. Which one
+stays, or whether the switch stays, is the user's call after seeing it. Strictly, bright rings
+look like emission lines; here they mark where the star's light is *missing*.

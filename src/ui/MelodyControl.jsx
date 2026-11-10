@@ -18,6 +18,7 @@ export default function MelodyControl({
   disabled, melodies, presetCount, presetIndex, onPresetChange, honest, onHonestChange, playing, onPlay, onStop, status,
   onImportMidi, trackOptions, track, onTrackChange,
   chordSampleStart = presetCount, midiChords, onMidiChordsChange,
+  haloStyle, onHaloStyleChange,
 }) {
   const fileRef = useRef(null);
   const presets = melodies.slice(0, chordSampleStart);
@@ -87,6 +88,16 @@ export default function MelodyControl({
             aria-label="Keep chords from MIDI"
           >
             CHORDS <span style={S.state}>{midiChords ? "ON" : "OFF"}</span>
+          </button>
+        )}
+        {onHaloStyleChange && (
+          <button
+            onClick={() => onHaloStyleChange(haloStyle === "bright" ? "dark" : "bright")}
+            style={S.button(false, false)}
+            title="Wave style: the star's lines as BRIGHT rings on a faint spectrum, or as DARK rings on a full rainbow"
+            aria-label="Wave ring style"
+          >
+            RINGS <span style={S.state}>{haloStyle === "bright" ? "BRIGHT" : "DARK"}</span>
           </button>
         )}
         <input

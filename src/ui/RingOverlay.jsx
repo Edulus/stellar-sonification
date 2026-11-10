@@ -44,7 +44,11 @@ function hexToRGB(hex) {
   return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
 }
 
-export default function RingOverlay({ engine }) {
+export default function RingOverlay({ engine, haloStyle = "bright" }) {
+  // Spectrum-halo style ("bright" | "dark"), read at draw time so switching it
+  // restyles waves already on screen.
+  const haloStyleRef = useRef(haloStyle);
+  useEffect(() => { haloStyleRef.current = haloStyle; }, [haloStyle]);
   const canvasRef = useRef(null);
   const systemsRef = useRef(new Map()); // starKey -> band system
   const rafRef = useRef(null);
@@ -243,7 +247,8 @@ export default function RingOverlay({ engine }) {
             const innerR = outerR * HALO_INNER_FRAC;
             const { x, y } = sys.pos;
             const grad = ctx.createRadialGradient(x, y, innerR, x, y, outerR);
-            for (const s of spectrumStops(band.spectrum, outerR - innerR)) {
+            const brightStyle = haloStyleRef.current === "bright";
+            for (const s of spectrumStops(band.spectrum, outerR - innerR, brightStyle ? "bright" : "dark")) {
               grad.addColorStop(s.pos, `rgba(${s.rgb[0]},${s.rgb[1]},${s.rgb[2]},${(alpha * s.k).toFixed(4)})`);
             }
             ctx.fillStyle = grad;
@@ -252,9 +257,12 @@ export default function RingOverlay({ engine }) {
             ctx.arc(x, y, innerR, 0, Math.PI * 2, true);
             ctx.fill();
             if (band.toneWl != null) {
-              const [tr, tg, tb] = brighten(band.rim || [255, 255, 255]);
-              ctx.strokeStyle = `rgba(${tr},${tg},${tb},${Math.min(1, alpha * 1.5).toFixed(4)})`;
-              ctx.lineWidth = 2;
+              // The sung note. On the rainbow it is a brightened ring of its own
+              // colour; among bright line rings it is a thin white one, so it
+              // can't be mistaken for one of the star's lines.
+              const [tr, tg, tb] = brightStyle ? [255, 255, 255] : brighten(band.rim || [255, 255, 255]);
+              ctx.strokeStyle = `rgba(${tr},${tg},${tb},${Math.min(1, alpha * (brightStyle ? 1.1 : 1.5)).toFixed(4)})`;
+              ctx.lineWidth = brightStyle ? 1.5 : 2;
               ctx.beginPath();
               ctx.arc(x, y, innerR + wlToRingPos(band.toneWl) * (outerR - innerR), 0, Math.PI * 2);
               ctx.stroke();
@@ -311,6 +319,7 @@ export default function RingOverlay({ engine }) {
     window.__ringOverlay = {
       isAnimating: () => rafRef.current != null,
       count: () => systemsRef.current.size,
+      haloStyle: () => haloStyleRef.current,
       bands: () => [...systemsRef.current.entries()].map(([k, s]) => ({ key: k, mode: s.mode, n: s.bands.length, pos: s.pos, rgb: s.bands[0]?.rgb ?? null, rim: s.bands[s.bands.length - 1]?.rim ?? null, spectrumLines: s.bands[s.bands.length - 1]?.spectrum?.length ?? 0, life: s.bands[0]?.life ?? null })),
     };
 

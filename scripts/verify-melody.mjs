@@ -238,6 +238,16 @@ ok(freqToWl(midiToFreq(20)) === 760 && freqToWl(midiToFreq(120)) === 380, "out-o
   const violet = at(420).rgb, red = at(680).rgb;
   ok(violet[2] > violet[1] && red[0] > red[2], "violet inside, red outside");
   ok(spectrumStops([], 80).every((s) => s.k <= 1) && spectrumStops(null, 0).length > 10, "a star with no lines still gets a plain spectrum ring");
+  // "bright" style: the inverse. Lines glow, the continuum is a faint wash.
+  const bs = spectrumStops(lines, 100, "bright");
+  const bat = (wl) => bs.reduce((b, s) => (Math.abs(s.pos - wlToRingPos(wl)) < Math.abs(b.pos - wlToRingPos(wl)) ? s : b));
+  ok(bat(486.1).k > 0.85 && bat(656.3).k > 0.5 && bat(486.1).k > bat(656.3).k && bat(570).k <= 0.1 + 1e-9,
+    `bright style: lines glow (Hβ ${bat(486.1).k.toFixed(2)}, Hα ${bat(656.3).k.toFixed(2)}), continuum faint (${bat(570).k.toFixed(2)}); a deeper line glows brighter`);
+  const edgeLine = spectrumStops([{ wl: 393.4, depth: 0.9, width: 1 }], 100, "bright");
+  ok(Math.max(...edgeLine.map((s) => s.k)) > 0.9, "bright style: a line near the ring's edge (Ca II K, 393 nm) is not faded out");
+  const pat = (ls) => spectrumStops(ls, 100, "bright").filter((s) => s.k > 0.5).map((s) => s.pos.toFixed(2)).join();
+  ok(pat([{ wl: 434, depth: 0.8, width: 1 }, { wl: 486.1, depth: 0.8, width: 1 }]) !== pat([{ wl: 589, depth: 0.8, width: 1 }, { wl: 705.3, depth: 0.8, width: 1 }]),
+    "bright style: stars with different lines get different ring patterns");
 }
 
 // 3. fitEnvelope

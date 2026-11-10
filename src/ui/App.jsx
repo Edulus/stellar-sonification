@@ -87,6 +87,9 @@ export default function App() {
   const [melodyHonest, setMelodyHonest] = useState(false);
   const [melodyPlaying, setMelodyPlaying] = useState(false);
   const [melodyStatus, setMelodyStatus] = useState(null); // {text, warn}
+  // Spectrum-halo style for melody waves: "bright" (lines glow on a faint wash)
+  // or "dark" (lines are dark rings on a full rainbow). A design comparison.
+  const [haloStyle, setHaloStyle] = useState("bright");
   const hoverStarKeyRef = useRef(null); // the one star currently admitted to hover audio
   const hoverPlaybackTypeRef = useRef(null); // actual mode started for that star
 
@@ -454,7 +457,7 @@ export default function App() {
         onStarUnhovered={handleStarUnhovered}
       />
 
-      <RingOverlay engine={engineRef.current} />
+      <RingOverlay engine={engineRef.current} haloStyle={haloStyle} />
 
       {/* Top-left HUD: one column that flows on any width. Row 1 (site, ground,
           clock) wraps on phones; melody gets its own row below; the hint joins
@@ -478,6 +481,8 @@ export default function App() {
           melodies={melodies}
           presetCount={BUILTIN_COUNT}
           chordSampleStart={MELODY_PRESETS.length}
+          haloStyle={haloStyle}
+          onHaloStyleChange={setHaloStyle}
           midiChords={midiChords}
           onMidiChordsChange={(on) => {
             setMidiChords(on);
