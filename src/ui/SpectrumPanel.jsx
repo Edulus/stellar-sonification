@@ -30,13 +30,15 @@ function legibleRGB([r, g, b], minLuma = 150) {
 }
 
 // Label layout constants, shared by the layout pass and the paint pass.
-const EL_FONT_LIT = "bold 10px monospace", EL_FONT = "9px monospace", WL_FONT = "8.5px monospace";
-// Each label is itself two lines (the wl number sits WL_DY-EL_DY = 11px above
+const EL_FONT_LIT = "bold 12px monospace", EL_FONT = "11px monospace", WL_FONT = "10.5px monospace";
+const AXIS_FONT = "11.5px monospace";
+// Each label is itself two lines (the wl number sits WL_DY-EL_DY = 13px above
 // its element symbol) — ROW_H must clear THAT plus the wl number's own glyph
 // height, or a stacked row's element symbol collides with the row below's wl
-// number. 14 didn't; 22 does (11px gap + ~8px ascender + pad).
-const ROW_H = 22, WL_DY = 17, EL_DY = 6, TOP_PAD = 13;
-const PLOT_H = 168, MARGIN_B = 42, MARGIN_L = 44, MARGIN_R = 16;
+// number: 13px gap + ~10px ascender + pad = 26. (Sizes are +2 px on the
+// originals, matching the rest of the UI; the spacing grew with them.)
+const ROW_H = 26, WL_DY = 19, EL_DY = 6, TOP_PAD = 15;
+const PLOT_H = 168, MARGIN_B = 46, MARGIN_L = 44, MARGIN_R = 16;
 
 // Text measurement needs a 2D context but not the on-screen one — using a
 // detached canvas keeps the layout pass a pure function of (lines, width), so
@@ -231,9 +233,9 @@ export default function SpectrumPanel({
     });
 
     // Axis.
-    ctx.fillStyle = "rgba(195,200,218,0.7)"; ctx.font = "9.5px monospace"; ctx.textAlign = "center";
-    for (let wl = 400; wl <= 750; wl += 50) ctx.fillText(`${wl}`, toX(wl), stripY + stripH + 14);
-    ctx.fillText("wavelength (nm)", m.l + pw / 2, stripY + stripH + 26);
+    ctx.fillStyle = "rgba(195,200,218,0.7)"; ctx.font = AXIS_FONT; ctx.textAlign = "center";
+    for (let wl = 400; wl <= 750; wl += 50) ctx.fillText(`${wl}`, toX(wl), stripY + stripH + 15);
+    ctx.fillText("wavelength (nm)", m.l + pw / 2, stripY + stripH + 29);
   }, [data, activeIdx, playingIdx, chordIndices, width, rowOf, marginTop, height]);
 
   const nearestLine = useCallback((clientX) => {
@@ -362,11 +364,16 @@ const styles = {
   badge: { fontSize: 10, letterSpacing: 1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, marginLeft: 8 },
   badgeCurated: { background: "rgba(120,220,170,0.12)", color: "rgba(150,235,195,0.9)", border: "1px solid rgba(120,220,170,0.3)" },
   badgeTemplate: { background: "rgba(255,200,120,0.1)", color: "rgba(255,210,150,0.85)", border: "1px solid rgba(255,200,120,0.28)" },
-  right: { display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "0 1 auto", justifyContent: "flex-end" },
+  // Takes whatever headLeft leaves. Its only flexible child (lineInfo) has a
+  // zero basis, so the hint never competes with the star's name/badge for
+  // width: it just fills the leftover space, and is the first thing to go.
+  right: { display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "1 1 auto", justifyContent: "flex-end" },
   // The only element allowed to give up space when the header is tight.
   lineInfo: {
     fontSize: 11, color: "rgba(180,188,205,0.6)",
-    flex: "0 1 auto", minWidth: 0, overflow: "hidden",
+    // width: 0 keeps the hint out of the row's intrinsic width (a zero flex
+    // basis alone does not), so it only ever fills space nothing else needs.
+    flex: "1 1 0", width: 0, minWidth: 0, overflow: "hidden", textAlign: "right",
     textOverflow: "ellipsis", whiteSpace: "nowrap",
   },
   modeToggle: {
@@ -406,7 +413,7 @@ const styles = {
   headLeftStacked: { flexShrink: 0, whiteSpace: "normal", overflow: "visible", lineHeight: 1.6 },
   rightStacked: { flexWrap: "wrap", justifyContent: "flex-start", rowGap: 6 },
   // Its own full-width row at the end; single line, so its height is fixed.
-  lineInfoStacked: { order: 10, flexBasis: "100%" },
+  lineInfoStacked: { order: 10, flexBasis: "100%", width: "auto", textAlign: "left" },
   close: {
     flexShrink: 0,
     background: "transparent", border: "1px solid rgba(120,140,180,0.3)",

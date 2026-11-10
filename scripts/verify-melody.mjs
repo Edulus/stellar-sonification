@@ -13,7 +13,7 @@
 //  6. plan            — note length = beats·60/bpm; rests advance time; the
 //                       sounding pitch is the melody's; timbre = strongest line
 //  7. honest          — each note picks the globally nearest real line pitch
-import { MELODY_PRESETS } from "../src/melodies/presets.js";
+import { MELODY_PRESETS, CHORD_SAMPLES } from "../src/melodies/presets.js";
 import {
   assignStars, distinctPitches, planMelody, driftStats, midiToFreq, strongestLine,
 } from "../src/melodies/melody.js";
@@ -174,6 +174,41 @@ const tune = smf({ format: 0, ppq: Q, tracks: [[[0, ...tempo(100)], [0, ...on(0,
   const mb = new Uint8Array(128 + tune.length); mb.set(tune, 128);
   ok(unwrapMidi(mb, "tune.bin").steps.join() === "MacBinary header", "a 128-byte MacBinary header is skipped");
   ok(unwrapMidi(tune).steps.length === 0, "a plain .mid passes through untouched");
+}
+
+// 1e. Chords across stars (a note whose midi is an array)
+{
+  ok(MELODY_PRESETS.every((p) => p.notes.every((n) => !Array.isArray(n.midi))), "built-in presets stay single-voice (chords live in CHORD_SAMPLES)");
+  ok(CHORD_SAMPLES.length === 3 && CHORD_SAMPLES.every((p) => { const r = normalizeMelody(p); return r.ok && JSON.stringify(r.melody) === JSON.stringify(p) && r.report.chords > 0; }),
+    "chord samples are in range and pass the normalizer unchanged");
+  const prog = CHORD_SAMPLES[0];
+  ok(distinctPitches(prog).join() === "57,59,60,62,64,65,67", `distinctPitches counts chord tones (I–V–vi–IV needs ${distinctPitches(prog).length} stars)`);
+  const cs = Array.from({ length: 7 }, (_, i) => ({ key: `c${i}`, name: `c${i}`, magnitude: i, temp: 3000 + i * 1000, rv: 0, color: "#fff", lines: mkLinesEarly(i) }));
+  function mkLinesEarly(i) { return [{ wl: 400 + i * 40, depth: 0.5, width: 1, profile: "voigt", ew: 100, ep: 3 }]; }
+  const ca = assignStars(cs, prog);
+  const cp = planMelody(prog, ca);
+  ok(cp.events.length === prog.notes.length && cp.events.every((e) => e.voices.length === 3 && new Set(e.voices.map((v) => v.star.key)).size === 3),
+    "each chord event has one voice per tone, each on its own star");
+  ok(cp.events.every((e) => e.voices.every((v) => ca.byPitch.get(v.midi) === v.star && near(v.freq, midiToFreq(v.midi)))) && cp.events[0].midi === 67 && cp.events[0].star === ca.byPitch.get(67),
+    "chord tones keep the pitch → star assignment; top-level fields mirror the top voice");
+  // Fewer stars than tones: cycling may put two tones on one star, both still sound.
+  const few3 = assignStars(cs.slice(0, 2), prog);
+  ok(planMelody(prog, few3).events.every((e) => e.voices.length === 3), "with too few stars, every chord tone still sounds (stars cycle)");
+  // Honest mode: two tones nearest the same real line merge into one voice.
+  const hon = planMelody({ name: "h", bpm: 60, notes: [{ midi: [60, 61], beats: 1 }] }, assignStars(cs.slice(0, 2), { notes: [{ midi: [60, 61], beats: 1 }] }), { honest: true });
+  ok(hon.events[0].voices.length >= 1 && new Set(hon.events[0].voices.map((v) => `${v.star.key}|${v.line.wl}`)).size === hon.events[0].voices.length, "honest mode never doubles the same line within a chord");
+  // Normalizer: chords are octave-fitted as a whole; folding can merge tones.
+  const lowCh = normalizeMelody({ name: "low", bpm: 90, notes: [{ midi: [24, 28, 31], beats: 2 }, { midi: [29.2, "x", 33, 36], beats: 2 }, { midi: [], beats: 1 }, { midi: [40], beats: 1 }] });
+  ok(lowCh.ok && JSON.stringify(lowCh.melody.notes) === JSON.stringify([{ midi: [48, 52, 55], beats: 2 }, { midi: [53, 57, 60], beats: 2 }, { midi: null, beats: 1 }, { midi: 64, beats: 1 }]) && lowCh.report.chords === 2,
+    "normalizer: chords move by octaves together, bad tones dropped, [] → rest, [x] → single note");
+  // MIDI: chords:true keeps every tone (also staggered ones); off keeps the top note.
+  const f = smf({ format: 0, ppq: Q, tracks: [[
+    [0, ...on(0, 60)], [10, ...on(0, 64)], [10, ...on(0, 67)], [Q - 20, ...off(0, 60)], [0, ...off(0, 64)], [0, ...off(0, 67)],
+    [0, ...on(0, 72)], [Q, ...off(0, 72)]]] });
+  const kept = midiToMelody(parseMidi(f), { chords: true });
+  ok(JSON.stringify(kept.melody.notes) === JSON.stringify([{ midi: [60, 64, 67], beats: 1 }, { midi: 72, beats: 1 }]) && kept.report.chordsKept === 1 && kept.report.chordNotesDropped === 0,
+    "MIDI with chords on: staggered triad kept whole, single notes stay single");
+  ok(notesOf(midiToMelody(parseMidi(f)).melody) === "67:1 72:1", "MIDI with chords off: unchanged (top note)");
 }
 
 // 2. magToGain
